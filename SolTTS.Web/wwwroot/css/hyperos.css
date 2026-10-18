@@ -1,0 +1,312 @@
+/* ═══════════════════════════════════════════════════════════════
+   SolTTS — HyperOS Design Tokens
+   Design language and tokens ported from miuix-console (Apache-2.0)
+   https://github.com/bmbxwbh/miuix-console
+   Color and shape specifications from the Xiaomi HyperOS / Miuix Compose library
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Primary — Miuix lightColorScheme primary ── */
+  --mx-primary: #3482FF;
+  --mx-primary-hover: #5D9BFF;
+  --mx-primary-active: #277AF7;
+  --mx-primary-on: #FFFFFF;
+  --mx-primary-glow: rgba(52, 130, 255, 0.12);
+  --mx-primary-container: #5D9BFF;
+  --mx-primary-container-on: #FFFFFF;
+  --mx-primary-variant: #3482FF;
+  --mx-primary-variant-on: #AECDFF;
+  --mx-tertiary-container: #EAF2FF;
+  --mx-tertiary-container-on: #3482FF;
+  --mx-accent: #5D9BFF;
+
+  /* ── Error / Semantic ── */
+  --mx-error: #E94634;
+  --mx-red: #E94634;
+  --mx-green: #34D399;
+  --mx-amber: #FBBF24;
+  --mx-blue: #60A5FA;
+  --mx-purple: #A855F7;
+
+  /* ── Surface — 5-step scale ── */
+  --mx-bg: #FFFFFF;
+  --mx-surface: #F7F7F7;
+  --mx-surface-variant: #FFFFFF;
+  --mx-s1: #F7F7F7;   /* Nav bar / sidebar / inset groups */
+  --mx-s2: #FFFFFF;   /* Cards */
+  --mx-s3: #EDEDED;   /* Inputs / floating layers */
+  --mx-s4: #E3E3E3;   /* Dropdowns / topmost layers */
+  --mx-s-hover: rgba(0, 0, 0, 0.04);
+  --mx-s-active: rgba(0, 0, 0, 0.07);
+
+  /* ── Text ── */
+  --mx-text: #000000;
+  --mx-text-on-surface: rgba(0, 0, 0, 0.8);
+  --mx-text-variant: rgba(0, 0, 0, 0.6);
+  --mx-text-actions: rgba(0, 0, 0, 0.4);
+  --mx-t2: rgba(0, 0, 0, 0.6);
+  --mx-t3: rgba(0, 0, 0, 0.4);
+  --mx-text-bg-variant: #8C93B0;
+  --mx-text-disabled: #B2B2B2;
+
+  /* ── Secondary ── */
+  --mx-secondary: #E6E6E6;
+  --mx-secondary-variant: #F0F0F0;
+  --mx-secondary-container: #F0F0F0;
+  --mx-secondary-container-on: #A9A9A9;
+
+  /* ── Border / Divider ── */
+  --mx-border: #D9D9D9;
+  --mx-divider: #E0E0E0;
+
+  /* ── Disabled ── */
+  --mx-disabled-primary: #C2D9FF;
+  --mx-disabled-primary-on: #F3F8FF;
+  --mx-disabled-secondary: #F0F0F0;
+  --mx-disabled-secondary-on: #FCFCFC;
+
+  /* ── Window / Slider ── */
+  --mx-window-dim: rgba(0, 0, 0, 0.3);
+  --mx-slider-bg: rgba(0, 0, 0, 0.08);
+
+  /* ── Radius — Miuix Smooth Corner ── */
+  --mx-r: 16px;
+  --mx-r-sm: 12px;
+  --mx-r-xs: 8px;
+  --mx-r-pill: 9999px;
+
+  /* ── Shadow — multi-layer soft shadows ── */
+  --mx-sh1: 0 1px 4px rgba(0, 0, 0, 0.08);
+  --mx-sh2: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --mx-sh3: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --mx-glow: 0 0 0 1px rgba(52, 130, 255, 0.06), 0 2px 12px rgba(52, 130, 255, 0.04);
+
+  /* ── Motion ── */
+  --mx-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --mx-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --mx-d1: 100ms;
+  --mx-d2: 200ms;
+  --mx-d3: 320ms;
+  --mx-d4: 500ms;
+
+  /* ── Typography ── */
+  --mx-font: "MiSans VF", "MiSans", "Mi Sans", -apple-system, BlinkMacSystemFont,
+             "PingFang SC", "Noto Sans SC", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  --mx-mono: "JetBrains Mono", "SFMono-Regular", "Cascadia Code", Consolas, monospace;
+  --mx-text-xs: 11px;
+  --mx-text-sm: 12px;
+  --mx-text-base: 13px;
+  --mx-text-md: 14px;
+  --mx-text-lg: 15px;
+  --mx-text-xl: 16px;
+  --mx-text-2xl: 20px;
+  --mx-text-3xl: 24px;
+
+  /* ── Legacy aliases — keep older modules and inline styles compatible ── */
+  --bg-color: var(--mx-bg);
+  --card-bg: var(--mx-s2);
+  --text-primary: var(--mx-text);
+  --text-secondary: var(--mx-text-variant);
+  --accent-color: var(--mx-primary);
+  --accent-glow: var(--mx-primary-glow);
+  --primary-color: var(--mx-primary);
+  --border-color: var(--mx-border);
+  --online-color: var(--mx-green);
+  --sidebar-bg: var(--mx-s1);
+  --nav-active-bg: var(--mx-s3);
+  --hover-bg: var(--mx-s-hover);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK MODE — Miuix darkColorScheme
+   ═══════════════════════════════════════════════════════════════ */
+[data-theme="dark"],
+body.dark-theme {
+  --mx-primary: #277AF7;
+  --mx-primary-hover: #338FE4;
+  --mx-primary-active: #0073DD;
+  --mx-primary-on: #FFFFFF;
+  --mx-primary-glow: rgba(39, 122, 247, 0.15);
+  --mx-primary-container: #338FE4;
+  --mx-primary-container-on: #FFFFFF;
+  --mx-primary-variant: #0073DD;
+  --mx-primary-variant-on: #99C7F1;
+  --mx-tertiary-container: #2B3B54;
+  --mx-tertiary-container-on: #4788FF;
+  --mx-accent: #338FE4;
+
+  --mx-error: #F12522;
+  --mx-red: #F12522;
+
+  --mx-bg: #161616;
+  --mx-surface: #0C0C0C;
+  --mx-surface-variant: #1C1C1C;
+  --mx-s1: #0C0C0C;
+  --mx-s2: #1C1C1C;
+  --mx-s3: #242424;
+  --mx-s4: #2C2C2C;
+  --mx-s-hover: rgba(255, 255, 255, 0.04);
+  --mx-s-active: rgba(255, 255, 255, 0.07);
+
+  --mx-text: #F2F2F2;
+  --mx-text-on-surface: rgba(255, 255, 255, 0.8);
+  --mx-text-variant: rgba(255, 255, 255, 0.5);
+  --mx-text-actions: rgba(255, 255, 255, 0.4);
+  --mx-t2: rgba(255, 255, 255, 0.6);
+  --mx-t3: rgba(255, 255, 255, 0.4);
+  --mx-text-bg-variant: #787E96;
+  --mx-text-disabled: #666666;
+
+  --mx-secondary: #505050;
+  --mx-secondary-variant: #434343;
+  --mx-secondary-container: #434343;
+  --mx-secondary-container-on: #7C7C7C;
+
+  --mx-border: #484848;
+  --mx-divider: #404040;
+
+  --mx-disabled-primary: #253E64;
+  --mx-disabled-primary-on: #677993;
+  --mx-disabled-secondary: #3F3F3F;
+  --mx-disabled-secondary-on: #797979;
+
+  --mx-window-dim: rgba(0, 0, 0, 0.6);
+  --mx-slider-bg: rgba(255, 255, 255, 0.14);
+
+  --mx-sh1: 0 1px 4px rgba(0, 0, 0, 0.5);
+  --mx-sh2: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --mx-sh3: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --mx-glow: 0 0 0 1px rgba(39, 122, 247, 0.08), 0 2px 12px rgba(39, 122, 247, 0.06);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BASE — Reset & Globals
+   ═══════════════════════════════════════════════════════════════ */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+  background: var(--mx-bg);
+}
+
+body {
+  font-family: var(--mx-font);
+  background: var(--mx-bg);
+  color: var(--mx-text);
+  min-height: 100dvh;
+  overflow: hidden;
+  transition: background-color var(--mx-d3) var(--mx-ease),
+              color var(--mx-d3) var(--mx-ease);
+}
+
+button, input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  border: none;
+  outline: none;
+  background: none;
+}
+
+button { cursor: pointer; }
+ul, ol { list-style: none; }
+a { text-decoration: none; color: inherit; }
+img { display: block; max-width: 100%; }
+code, kbd, pre { font-family: var(--mx-mono); }
+
+::selection {
+  background: var(--mx-primary-glow);
+  color: var(--mx-text);
+}
+
+/* Scrollbar — Miuix thin scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--mx-s4);
+  border-radius: var(--mx-r-pill);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--mx-t3); }
+* { scrollbar-color: var(--mx-s4) transparent; scrollbar-width: thin; }
+
+/* Continuous-curvature corners — progressive enhancement for Chromium 139+ */
+.card,
+.stat-card,
+.modal-content,
+.loading-content,
+.config-group,
+.reference-item,
+.quick-action,
+textarea,
+input[type="text"],
+input[type="number"],
+select {
+  corner-shape: squircle;
+}
+
+:focus-visible {
+  outline: 2px solid var(--mx-primary);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes mx-slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes mx-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes mx-card-in {
+  from { opacity: 0; transform: scale(0.96) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes mx-ripple {
+  to { transform: scale(4); opacity: 0; }
+}
+@keyframes mx-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes mx-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(1.35); }
+}
+@keyframes mx-dot-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%           { transform: scale(1); opacity: 1; }
+}
+@keyframes mx-modal-in {
+  from { opacity: 0; transform: scale(0.94) translateY(14px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes mx-sheet-in {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Toast is centered with translateX(-50%); animating transform here would
+   override that and make the toast jump horizontally when the animation ends. */
+@keyframes mx-toast-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

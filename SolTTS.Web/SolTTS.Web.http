@@ -1,0 +1,41 @@
+@SolTTS.Web_HostAddress = http://localhost:5000
+
+### Streaming speech synthesis (play directly with ffplay)
+# Run in PowerShell: ffplay.exe -f f32le -ar 32000 -window_title "SolTTS Stream" -nodisp "http://localhost:5000/api/tts/predict-stream?text=良宵方始，不必心急。"
+GET {{SolTTS.Web_HostAddress}}/api/tts/predict-stream?text=良宵方始，不必心急。&speed=1.0
+
+### Create a streaming synthesis session
+POST {{SolTTS.Web_HostAddress}}/api/tts/stream/create
+Content-Type: application/json
+
+{
+  "text": "良宵方始，不必心急。",
+  "speed": 1.0,
+  "noiseScale": 0.35,
+  "temperature": 1.0,
+  "topK": 15
+}
+
+### Fetch streaming audio data (using the sessionId above)
+GET {{SolTTS.Web_HostAddress}}/api/tts/stream/{sessionId}
+
+### Cancel a streaming synthesis session
+DELETE {{SolTTS.Web_HostAddress}}/api/tts/stream/{sessionId}
+
+### Get all active streaming sessions
+GET {{SolTTS.Web_HostAddress}}/api/tts/stream/sessions
+
+### Full speech synthesis
+POST {{SolTTS.Web_HostAddress}}/api/tts/predict
+Content-Type: application/json
+
+{
+  "text": "测试全量语音合成功能"
+}
+
+### Get the voice list
+GET {{SolTTS.Web_HostAddress}}/api/tts/avatars
+
+### Hot-reload configuration
+POST {{SolTTS.Web_HostAddress}}/api/tts/reload
+

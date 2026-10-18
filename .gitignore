@@ -1,0 +1,154 @@
+# Build outputs
+bin/
+obj/
+out/
+
+# IDE and editors
+.idea/
+.vs/
+.vscode/
+.agent/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Rider
+*.sln.iml
+
+# User-specific files
+*.rsuser
+*.DotSettings.user
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+
+# NCrunch
+*.ncrunch*
+_NCrunch_*
+.*crunch*.local.xml
+nCrunchTemp_*
+
+# Chutzpah
+_chutzpah*
+
+# Resharper
+_ReSharper*/
+*.DotSettings
+!*.DotSettings.user
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+
+# User config (keep template only)
+config.json
+config.yaml
+config.yml
+custom_dict.txt
+
+# Model files (too large for git)
+*.onnx
+*.onnx.data
+!tools/converter/templates/*.onnx
+
+# Resources (user should provide their own)
+SolTTS.Core/models/
+SolTTS.Core/resources/
+SolTTS.Core/GenieData/
+SolTTS.Core/GenieData(Optional)/
+
+# Audio files
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.pcm
+
+# Dictionary files
+*.txt
+*.dict
+
+# Resource files
+resources/
+# Resources (Too large for Git)
+resources-minimal/
+# Ignore subdirectories in resources-minimal if they are user-specific
+#resources-minimal/avatars/
+#resources-minimal/models_v1/
+
+# Tools files
+# Tools (Scripts are tracked, runtime is excluded)
+tools/converter/runtime/
+tools/converter/__pycache__/
+
+# Publish results
+publish/
+publish-linux/
+venv/
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+
+/releases/
+/publish-mac-arm64/
+
+# ggml plugin EP binary (56 MB; see SolTTS.Core/third_party/README.md)
+SolTTS.Core/third_party/*.dll
+
+# Rust native audio crate build output (see native/sol_audio/README.md)
+native/sol_audio/target/
+
+# Emotion control temp artifacts (local evaluation / dataset staging)
+_downloads/
+_emotion_eval_cli/
+_emotion_eval/
+resources/emotion_vectors_test/
+tools/emotion/*.npy
+.zcode/
+_tmp/

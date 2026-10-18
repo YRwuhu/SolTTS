@@ -1,0 +1,131 @@
+# SolTTS configuration template
+# ============================================================
+# Modify as needed and save as config.yaml
+
+# Resource root: stores core models (models_v1), language dictionaries (dicts), etc.
+ResourcesDir: "./resources"
+
+# Default Avatar ID
+DefaultAvatarId: chenxing
+
+# --- Avatar definitions ---
+Avatars:
+- Id: chenxing                     # Unique avatar identifier
+  Name: 晨星                 # Name displayed in the WebUI
+  Description: '尘白禁区中晨星的音色' # Avatar description
+  DefaultReferenceId: default    # Default reference audio ID
+  References:                    # Reference audio settings (voice cloning or style control)
+  - Id: default
+    Name: 【正常】良宵方始，不必心急。
+    AudioPath: "【正常】良宵方始，不必心急。.wav"
+    Text: "良宵方始，不必心急。"
+    Language: zh                 # Reference audio language (zh/en/ja)
+
+# Global engine setting: false uses SolTTS V1-series models
+UseEngineV2: false
+
+# --- ONNX Runtime performance and parallelism ---
+# IntraOpNumThreads: threads for intra-operator parallelism. Recommended: physical core count (e.g., 4, 8, 16); 0 = automatic
+# (On macOS, automatic mode selects performance P-cores to avoid slowdown from efficiency cores.)
+IntraOpNumThreads: 0
+# InterOpNumThreads: threads for inter-operator parallelism. For the chained TTS graph, 1 is recommended; 0 = automatic
+InterOpNumThreads: 0
+# GraphOptimizationLevel: graph optimization level (0=disabled, 1=basic, 2=all).
+GraphOptimizationLevel: 1
+# IntraOpAllowSpinning: allow ORT operator threads to spin-wait. Reduces wake-up latency for small operators
+# but competes with concurrent vocoder threads for CPU; default false.
+IntraOpAllowSpinning: false
+# ParallelExecution: use ORT_PARALLEL execution mode (inter-operator parallelism). No measurable benefit; default false.
+ParallelExecution: false
+# ParallelSentenceDegree: maximum number of sentences decoded in parallel for non-streaming multi-sentence synthesis (1=off).
+# Sentences' T2S stages are independent, so parallelism significantly reduces total time (measured median for 3 sentences: ~3.5s -> ~2.4s).
+# The streaming path always produces sentences sequentially and is unaffected. Default 3.
+ParallelSentenceDegree: 3
+
+# --- Hardware acceleration (GPU via ggml plugin EP: Vulkan on Windows/Linux, Metal on macOS) ---
+# UseVocoderGgml: hybrid mode; only the vocoder (vits) uses the ggml GPU plugin, all other models stay on CPU.
+# Measured (AMD RX 5500 XT): vits is about 5× faster than CPU; full streaming path about 2×, non-streaming about 25% (RTF 0.77 -> 0.52).
+# Requires a Vulkan-capable GPU and driver; falls back to CPU automatically if the library is missing or fails to load. Recommended.
+UseVocoderGgml: true
+# UseBertCache: enable BERT feature caching. Reuses results for repeated synthesis of the same text (including alignment),
+# avoiding a ~280–390 ms BERT forward pass; the cache lives with the engine instance, capacity 256 (FIFO eviction). Default true.
+UseBertCache: true
+# UseBertNoLoopModel: use the loop-free roberta variant (roberta_noloop.onnx).
+# It replaces the Loop node responsible for ~278 ms of CPU control flow with equivalent vectorized operators (a CumSum+Gather
+# implementation of repeat_interleave), benefiting both CPU and GPU backends. Falls back to the original model if the file is missing.
+# Default false: first verify with the comparison tool that both produce bit-identical output.
+UseBertNoLoopModel: false
+# UseBertGgml: experimental; runs BERT on ggml/Vulkan. Measured with onnxruntime-ggml v0.2.0, roberta
+# returns "claiming nothing" (22 Gelu nodes unsupported); the whole graph still runs on CPU with extra plugin overhead,
+# making end-to-end about 1.7× slower (294 -> 489 ms). Disabled by default; enable only to re-evaluate after upgrading the plugin.
+UseBertGgml: false
+# UseStageDecoderLoopModel: experimental; use the Loop-fused decoder model (t2s_stage_decoder_loop.onnx).
+# Merges ~95 per-token Run calls into a single in-graph loop. Measured (30 steps on this machine): 1.02×/0.98×,
+# i.e., no gain beyond noise — the bottleneck is weight bandwidth in the 24-layer Transformer, not Run overhead.
+# Kept as a validation baseline for future in-graph optimizations. Falls back automatically if the model is missing. Default false.
+UseStageDecoderLoopModel: false
+# UseCoreML: macOS only. Default false: measured CoreML is actually slower than pure CPU for GPT-SoVITS models
+# (factor graph partitioning + ANE/CPU data transfer overhead). Enable only if your model genuinely benefits.
+UseCoreML: false
+# CoreMLFlags: CoreML flags (bitwise OR), 2=subgraph fallback; 4=prefer ANE; 16=MLProgram format
+CoreMLFlags: 2
+
+# --- Emotion control (guidance without reference audio) ---
+# UseEmotionControl: enable emotion control. Injects the emotion direction vector τ into the speaker embedding
+# (sv_emb, 20480-d) for the requested EmotionId (x_new = x_base + α·||x_base||·τ̂), then recomputes ge/ge_advanced
+# through prompt_encoder, guiding emotional expression without emotional reference audio. Silently disabled if τ files
+# are missing. Default false.
+UseEmotionControl: false
+# EmotionVectorPath: τ directory (relative to ResourcesDir). Must contain manifest.json and tau_<emotion>.f32,
+# generated from the CSEMOTIONS dataset with tools/emotion/extract_tau.py.
+EmotionVectorPath: emotion_vectors
+# EmotionAlpha: default emotion strength α. Empirical range 0.1~0.5: too small has no visible effect, too large degrades voice similarity.
+EmotionAlpha: 0.3
+
+# Inference session pool capacity: maximum number of concurrent synthesis requests
+PoolCapacity: 1
+# Reuse memory: when enabled, different sessions share model instances to save memory
+ReuseMemory: true
+
+# --- Synthesis parameter defaults ---
+Speed: 1.0                       # Speaking rate (0.5 - 2.0)
+StreamingMode: true              # Whether the CLI enables streaming playback feedback by default
+StreamingChunkSize: 22           # Token chunk size for streaming synthesis (smaller = lower latency, higher CPU load)
+StreamingPreBufferChunks: 2      # Number of audio pre-buffer chunks (reduces generation stutter)
+# VocoderRetriggerFactor: growth factor for the streaming vocoder retrigger threshold (1.2 - 4.0).
+# Each vocoder call recomputes over all tokens accumulated so far (VITS includes enc_p attention and flow global dependencies,
+# so it cannot decode only the new window); total single-sentence compute is ~2-3x the final token count.
+# Measured 1.5→4.0: vocoder calls 56→42, total vocoder time -29%, streaming 3-sentence total time ~-10%,
+# first-chunk latency (TTFB) unaffected. Cost: larger spacing between audio chunks (each chunk is longer). Default 4.0.
+VocoderRetriggerFactor: 4.0
+
+# WASAPI exclusive mode (affects only direct local CLI/Windows service output, not Web streaming)
+WasapiExclusiveMode: false
+# Playback audio ring buffer size (bytes)
+LockFreeBufferSize: 2097152
+# UseNativeAudio: use native/sol_audio (Rust) real-time audio primitives:
+# SPSC ring buffer, first-order high-pass, crossfade, float->PCM16. Measured with 1ms blocks, p99 drops from 27us to 4us,
+# ring buffer write/read pair from 0.92us to 0.05us, with zero managed allocations. Falls back to the managed implementation
+# when the DLL is missing. Does not change inference results or audio content. Build native/sol_audio first (see its README). Default false.
+UseNativeAudio: false
+
+# Debug mode: detailed engine logs on the console when enabled
+DebugMode: false
+
+# --- Inference quality control (hallucination filtering and automatic retries) ---
+Inference:
+  MaxRetries: 3                  # Maximum automatic retries after a failed sentence (hallucination/truncation detected)
+  # Per-language inference length factors (thresholds); higher values make retries more likely
+  MinTokenMultiplierChinese: 2.0
+  MinTokenMultiplierJapanese: 1.7
+  MinTokenMultiplierEnglish: 1.3
+  MinTokenMultiplierOther: 0.5   # Retry factor for punctuation and other symbols
+
+# --- Language and G2P (grapheme-to-phoneme) settings ---
+G2P:
+  # Custom dictionary: filename under ResourcesDir/dicts
+  CustomDictPath: custom_dict.txt
+  # English G2P priority: 0=dictionary first, 1=dictionary only, 2=model first
+  PriorityMode: 0
+  # Languages allowed to be detected and processed (choose two of three): ["zh", "en", "ja"]
+  Languages: ["zh", "ja"]

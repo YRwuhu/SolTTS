@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SolTTS.Core\SolTTS.Core.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>sol-cli</AssemblyName>
+    <AssemblyVersion>1.2.2</AssemblyVersion>
+    <Version>1.2.2</Version>
+    <!-- For cross-platform (Linux/macOS) publishing, warnings about Windows-only APIs (NAudio WasapiOut, etc.) are isolated by runtime checks; suppress false positives. -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+</Project>

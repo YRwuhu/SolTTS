@@ -1,0 +1,80 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- NativeAudio: Rust cdylib binding uses fixed pointers over pooled buffers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.33.2" />
+    <PackageReference Include="jieba.NET" Version="0.42.2" />
+    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
+    <!-- DirectML package was last updated in 1.24.4 and is incompatible with ORT 1.29+; vocoder GPU acceleration now uses the ggml (Vulkan/Metal) plugin EP. -->
+    <!-- <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.23.0" /> -->
+    <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="NumSharp" Version="0.30.0" />
+    <PackageReference Include="SharpOpenJTalk.Lang" Version="2.0.3" />
+    <PackageReference Include="Tokenizers.HuggingFace" Version="2.21.4" />
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Native audio primitives (optional): distributed with build output when present; falls back automatically on the managed side when missing.
+         See native/sol_audio/README.md for build instructions. -->
+    <None Include="..\native\sol_audio\target\release\sol_audio.dll"
+          Condition="Exists('..\native\sol_audio\target\release\sol_audio.dll') AND $([MSBuild]::IsOSPlatform('Windows'))">
+      <Link>sol_audio.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\native\sol_audio\target\release\libsol_audio.so"
+          Condition="Exists('..\native\sol_audio\target\release\libsol_audio.so')">
+      <Link>libsol_audio.so</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\native\sol_audio\target\release\libsol_audio.dylib"
+          Condition="Exists('..\native\sol_audio\target\release\libsol_audio.dylib')">
+      <Link>libsol_audio.dylib</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- ggml plugin EP (same file name as in the onnxruntime-ggml v0.2.0 release package), distributed with build output.
+         At runtime, the SOLTTS_GGML_LIBRARY environment variable can also point to a DLL with the same name elsewhere. -->
+    <None Include="third_party/onnxruntime_ggml.dll" Condition="Exists('third_party/onnxruntime_ggml.dll') AND $([MSBuild]::IsOSPlatform('Windows'))">
+      <Link>onnxruntime_ggml.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Emotion direction vectors τ (~80KB per emotion), distributed with build output and propagated to referencing projects (CLI/Web).
+         At runtime, ResourcesDir/EmotionVectorPath takes priority; if missing, falls back to the directory of the same name under the output directory. -->
+    <Content Include="emotion_vectors/**/*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+<!--
+  <ItemGroup>
+    <Content Include="mandarin_pinyin.dict">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="cmudict.dict">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="opencpop-strict.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    
+    <Content Include="GenieData\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="GenieData(Optional)\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="models\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup> -->
+</Project>

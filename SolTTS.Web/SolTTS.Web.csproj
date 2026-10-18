@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>sol-server</AssemblyName>
+    <AssemblyVersion>1.2.2</AssemblyVersion>
+    <Version>1.2.2</Version>
+    <!-- Suppress false-positive warnings for Windows-only APIs when publishing cross-platform (Linux/macOS). -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.12.30" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SolTTS.Core\SolTTS.Core.csproj" />
+  </ItemGroup>
+
+</Project>
