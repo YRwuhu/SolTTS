@@ -97,6 +97,7 @@ results here so nobody re-runs them.
 | `VocoderRetriggerFactor: 4.0` | Vocoder calls 56 → 42 per run; vocoder time −29%; streaming total ~−10% |
 | BERT feature cache | Saves a ~280–390 ms forward pass on repeated text |
 | Rust native audio (`sol_audio`) | Audio pipeline p99 27 µs → 4 µs; ring buffer 0.70 µs → 0.05 µs per chunk |
+| QKV `Split` fusion in the decoder (`UseFusedQkvDecoder`) | 48 fewer nodes per step; bit-identical output (51/51 diff = 0) |
 
 ### What did not help
 
@@ -108,6 +109,7 @@ results here so nobody re-runs them.
 | Merging decode steps into one ONNX `Loop` | 1.02× / 0.98× — inside noise |
 | Shortening the decoder's `iy` input | 109 → 2 tokens changes nothing (15.36 → 15.25 ms/step) |
 | Incremental vocoding (decode only new tokens) | Not possible: the VITS `enc_p` attention and flow depend on the whole sequence |
+| `QLinearMatMul` fusion of the quantized matmuls | Rejected: its output is int8, but the int32 accumulators span ±20000, so results saturate |
 | CoreML on macOS | Slower than CPU for these models |
 
 The honest summary: the decoder is bandwidth-bound on a single CPU core's memory path, and

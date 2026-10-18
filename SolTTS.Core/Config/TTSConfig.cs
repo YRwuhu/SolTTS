@@ -262,6 +262,18 @@ namespace SolTTS.Core.Config
         public bool UseStageDecoderLoopModel { get; set; } = false;
 
         /// <summary>
+        /// 使用 QKV Split 融合的解码器（t2s_stage_decoder_qkv.onnx）。
+        ///
+        /// 原图每层用三次 Slice 把 Q/K/V 从投影结果里切出来；融合版用一次 Split 切三段。
+        /// 1300 节点降到 1252，少 48 次算子调度。已验证数值严格等价：
+        /// 固定采样后 51/51 个输出逐位相同（diff = 0）。
+        ///
+        /// 模型缺失时自动回退原图。默认 true（纯结构重写，无精度损失）。
+        /// 用 tools/converter/fuse_qkv_split.py 生成。
+        /// </summary>
+        public bool UseFusedQkvDecoder { get; set; } = true;
+
+        /// <summary>
         /// Whether to enable BERT feature caching. When enabled, repeated calls with the same text (including alignment)
         /// reuse the result, saving one BERT forward pass of about 280–390 ms. The cache lives with the engine instance. Default true.
         /// </summary>

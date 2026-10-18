@@ -64,6 +64,14 @@ UseBertGgml: false
 # i.e., no gain beyond noise — the bottleneck is weight bandwidth in the 24-layer Transformer, not Run overhead.
 # Kept as a validation baseline for future in-graph optimizations. Falls back automatically if the model is missing. Default false.
 UseStageDecoderLoopModel: false
+# UseFusedQkvDecoder: use the QKV-Split fused decoder (t2s_stage_decoder_qkv.onnx).
+# The stock graph slices Q/K/V out of the projection result with three separate Slice ops per layer;
+# the fused variant uses one Split instead, dropping 48 nodes (1300 -> 1252).
+# Verified bit-identical: with sampling frozen, all 51 outputs match with diff = 0.
+# Generate with tools/converter/fuse_qkv_split.py. Falls back to the stock model if missing. Default true.
+# Note: this is a pure structural rewrite with no precision loss, unlike QLinearMatMul fusion
+# (which was evaluated and rejected because its int8 output saturates the int32 accumulator range).
+UseFusedQkvDecoder: true
 # UseCoreML: macOS only. Default false: measured CoreML is actually slower than pure CPU for GPT-SoVITS models
 # (factor graph partitioning + ANE/CPU data transfer overhead). Enable only if your model genuinely benefits.
 UseCoreML: false

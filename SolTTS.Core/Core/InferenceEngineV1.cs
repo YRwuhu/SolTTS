@@ -224,7 +224,7 @@ namespace SolTTS.Core.Core
             Parallel.Invoke(
                 () => _t2sEncoder = LoadModelWithFallback(Path.Combine(modelDir, "t2s_encoder.onnx"), config),
                 () => _firstStageDecoder = LoadModelWithFallback(Path.Combine(modelDir, "t2s_first_stage_decoder.onnx"), config),
-                () => _stageDecoder = LoadModelWithFallback(Path.Combine(modelDir, "t2s_stage_decoder.onnx"), config),
+                () => _stageDecoder = LoadStageDecoder(modelDir, config),
                 () => _stageDecoderLoop = LoadStageDecoderLoop(modelDir, config),
                 () => _vocoder = LoadVocoderWithFallback(Path.Combine(modelDir, "vits.onnx"), config),
                 () =>
@@ -250,6 +250,32 @@ namespace SolTTS.Core.Core
                     }
                 }
             );
+        }
+
+        /// <summary>
+        /// 加载 stage decoder，优先使用 QKV Split 融合变体。
+        ///
+        /// 原图每层把 Q/K/V 用三次 Slice 切开；融合版用一次 Split，少 48 个节点。
+        /// 两者逐位等价（已验证 51/51 输出 diff=0），融合版只是少了两次算子调度。
+        /// 融合模型不存在时自动回退原图。
+        /// </summary>
+        private InferenceSession LoadStageDecoder(string modelDir, SolTTS.Core.Config.TTSConfig config)
+        {
+            string fused = Path.Combine(modelDir, "t2s_stage_decoder_qkv.onnx");
+            if (config.UseFusedQkvDecoder && File.Exists(fused))
+            {
+                try
+                {
+                    var s = LoadModelWithFallback(fused, config);
+                    DebugLog("[StageDecoder] 使用 QKV Split 融合模型");
+                    return s;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ [StageDecoder] 融合模型加载失败，回退原图: {ex.Message}");
+                }
+            }
+            return LoadModelWithFallback(Path.Combine(modelDir, "t2s_stage_decoder.onnx"), config);
         }
 
         /// <summary>
