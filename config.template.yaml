@@ -31,7 +31,7 @@ IntraOpNumThreads: 0
 # InterOpNumThreads: threads for inter-operator parallelism. For the chained TTS graph, 1 is recommended; 0 = automatic
 InterOpNumThreads: 0
 # GraphOptimizationLevel: graph optimization level (0=disabled, 1=basic, 2=all).
-GraphOptimizationLevel: 1
+GraphOptimizationLevel: 2
 # IntraOpAllowSpinning: allow ORT operator threads to spin-wait. Reduces wake-up latency for small operators
 # but competes with concurrent vocoder threads for CPU; default false.
 IntraOpAllowSpinning: false
@@ -65,13 +65,12 @@ UseBertGgml: false
 # Kept as a validation baseline for future in-graph optimizations. Falls back automatically if the model is missing. Default false.
 UseStageDecoderLoopModel: false
 # UseFusedQkvDecoder: use the QKV-Split fused decoder (t2s_stage_decoder_qkv.onnx).
-# The stock graph slices Q/K/V out of the projection result with three separate Slice ops per layer;
-# the fused variant uses one Split instead, dropping 48 nodes (1300 -> 1252).
-# Verified bit-identical: with sampling frozen, all 51 outputs match with diff = 0.
-# Generate with tools/converter/fuse_qkv_split.py. Falls back to the stock model if missing. Default true.
-# Note: this is a pure structural rewrite with no precision loss, unlike QLinearMatMul fusion
-# (which was evaluated and rejected because its int8 output saturates the int32 accumulator range).
-UseFusedQkvDecoder: true
+# The stock graph slices Q/K/V with three separate Slice ops per layer; the fused variant
+# uses one Split (bit-identical: 51/51 outputs diff = 0 with sampling frozen).
+# Measured: at GraphOptimizationLevel=2 ORT performs this fusion itself, so both models
+# optimize to 696 nodes. This switch only matters at GOL 0/1. Default false.
+# Generate with tools/converter/fuse_qkv_split.py.
+UseFusedQkvDecoder: false
 # UseCoreML: macOS only. Default false: measured CoreML is actually slower than pure CPU for GPT-SoVITS models
 # (factor graph partitioning + ANE/CPU data transfer overhead). Enable only if your model genuinely benefits.
 UseCoreML: false

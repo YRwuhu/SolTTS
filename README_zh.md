@@ -90,7 +90,7 @@
 | `VocoderRetriggerFactor: 4.0` | 声码器调用次数 56 → 42；声码器耗时 -29%；流式总时长约 -10% |
 | BERT 特征缓存 | 重复文本省掉一次约 280–390 毫秒的前向 |
 | Rust 原生音频（`sol_audio`） | 音频管线 p99 27 微秒 → 4 微秒；环形缓冲区 0.70 → 0.05 微秒 |
-| 解码器 QKV `Split` 融合（`UseFusedQkvDecoder`） | 每步少 48 个节点；输出逐位相同（51/51 diff = 0） |
+| `GraphOptimizationLevel: 2` | ORT 把解码器从 1300 节点融合到 696（`DynamicQuantizeMatMul`、`SkipLayerNormalization`、`FusedMatMul`）；95 步完整 rollout token 序列一致 |
 
 ### 没用的
 
@@ -103,6 +103,7 @@
 | 缩短解码器的 `iy` 输入 | 从 109 个 token 截到 2 个，耗时没变（15.36 → 15.25 毫秒/步） |
 | 增量声码（只解码新增 token） | 做不到：VITS 的 `enc_p` 注意力和 flow 依赖整段序列 |
 | 用量化矩阵乘的 `QLinearMatMul` 融合 | 否决：它输出 int8，但 int32 累加器范围是 ±20000，会饱和丢精度 |
+| 手写 QKV `Split` 融合 | 多余：GOL=2 时 ORT 自己做同样的融合，两个模型都优化成 696 节点。脚本保留，仅 GOL 0/1 时有用 |
 | macOS 上的 CoreML | 对这些模型比 CPU 还慢 |
 
 说句实话：解码器卡在单核内存带宽上，改配置救不了。想真正提速，需要把 KV cache 常驻显存、
@@ -153,8 +154,8 @@ IntraOpNumThreads: 0
 InterOpNumThreads: 1
 ```
 
-有两项除非你有明确理由，否则建议别动：`IntraOpAllowSpinning: true` 会和并发的声码器抢
-CPU，`GraphOptimizationLevel: 2` 只增加启动时间，实测没有收益。
+有一项除非你有明确理由，否则建议别动：`IntraOpAllowSpinning: true` 会和并发的声码器抢
+CPU，实测让多句请求变慢。
 
 所有选项及说明见 [`config.template.yaml`](config.template.yaml)。
 

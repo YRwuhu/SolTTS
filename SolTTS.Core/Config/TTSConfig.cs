@@ -265,13 +265,14 @@ namespace SolTTS.Core.Config
         /// 使用 QKV Split 融合的解码器（t2s_stage_decoder_qkv.onnx）。
         ///
         /// 原图每层用三次 Slice 把 Q/K/V 从投影结果里切出来；融合版用一次 Split 切三段。
-        /// 1300 节点降到 1252，少 48 次算子调度。已验证数值严格等价：
-        /// 固定采样后 51/51 个输出逐位相同（diff = 0）。
+        /// 已验证数值严格等价：固定采样后 51/51 个输出逐位相同（diff = 0）。
         ///
-        /// 模型缺失时自动回退原图。默认 true（纯结构重写，无精度损失）。
-        /// 用 tools/converter/fuse_qkv_split.py 生成。
+        /// 实测结论：GraphOptimizationLevel=2 时 ORT 自己就会把 Slice 融合成 Split，
+        /// 原图与融合版优化后都是 696 节点，因此本开关在默认配置下没有额外收益。
+        /// 只有把 GOL 设为 0/1 时才有用。保留默认 false，避免误导。
+        /// 模型缺失时自动回退原图。用 tools/converter/fuse_qkv_split.py 生成。
         /// </summary>
-        public bool UseFusedQkvDecoder { get; set; } = true;
+        public bool UseFusedQkvDecoder { get; set; } = false;
 
         /// <summary>
         /// Whether to enable BERT feature caching. When enabled, repeated calls with the same text (including alignment)
@@ -372,7 +373,18 @@ namespace SolTTS.Core.Config
         /// <summary>
         /// Graph optimization level (0=disabled, 1=basic, 2=aggressive).
         /// </summary>
-        public int GraphOptimizationLevel { get; set; } = 1;
+        /// <summary>
+        /// ONNX Runtime 图优化级别（0=禁用, 1=BASIC, 2=ALL）。
+        ///
+        /// 实测 ALL 会把解码器从 1300 节点融合到 696：
+        /// MatMulInteger -> DynamicQuantizeMatMul、LayerNormalization+Add -> SkipLayerNormalization、
+        /// 以及 FusedMatMul。这些是 ORT 内置的等价重写，我们手写的 QLinearMatMul 融合
+        /// 做不到（会饱和），ORT 用 int32 累加保住了精度。
+        ///
+        /// 数值影响：单步输出差约 3e-6（浮点重排），自回归 95 步后 KV 累积到约 0.14，
+        /// 但 token 序列完全一致（已验证）。默认 2。
+        /// </summary>
+        public int GraphOptimizationLevel { get; set; } = 2;
 
         /// <summary>
         /// Whether to allow ORT operator threads to spin-wait. Default false (more power-efficient on Windows,
