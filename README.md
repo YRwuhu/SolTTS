@@ -62,9 +62,11 @@ medians, not best-case picks.
 | Model load (cold start) | ~7 s |
 
 Roughly 85% of a single sentence is the autoregressive semantic decoder: about 95 steps at
-~15.7 ms each. That cost is memory-bandwidth-bound (each step reads ~72 MB of INT8 weights),
-which is why most "just put it on the GPU" ideas do not work here. See
-[Performance notes](#performance-notes) for the experiments and the negative results.
+~11–15 ms each. That cost is **not** memory bandwidth, despite what earlier notes here said:
+ORT's own kernel profile puts 37% of a step in `DynamicQuantizeMatMul` and 39% in layout ops
+(`Transpose`/`Concat`/`Reshape`/`Unsqueeze`), and thread count makes no measurable difference.
+GPU offload does not help either — see [Performance notes](#performance-notes) and
+[docs/DECODER_BASELINE.md](docs/DECODER_BASELINE.md) for the measurements behind both claims.
 
 ---
 
@@ -98,6 +100,7 @@ results here so nobody re-runs them.
 | BERT feature cache | Saves a ~280–390 ms forward pass on repeated text |
 | Rust native audio (`sol_audio`) | Audio pipeline p99 27 µs → 4 µs; ring buffer 0.70 µs → 0.05 µs per chunk |
 | `GraphOptimizationLevel: 2` | ORT fuses the decoder 1300 → 696 nodes (`DynamicQuantizeMatMul`, `SkipLayerNormalization`, `FusedMatMul`); token sequence identical over a full 95-step rollout |
+| Native KV cache layout (`UseNativeKvLayout`, on by default) | Decoder layout ops 369 → 273 nodes; **1.07–1.13×** per decode step. Logits and rendered audio are **bit-identical**. Requires running `tools/converter/fuse_kv_layout.py` once per resource tree; falls back to the shipped models if the generated files are absent |
 
 ### What did not help
 
@@ -112,10 +115,18 @@ results here so nobody re-runs them.
 | `QLinearMatMul` fusion of the quantized matmuls | Rejected: its output is int8, but the int32 accumulators span ±20000, so results saturate |
 | Hand-written QKV `Split` fusion | Redundant: at GOL 2 ORT performs the same fusion, so both models optimize to 696 nodes. Kept as a script for GOL 0/1 only |
 | CoreML on macOS | Slower than CPU for these models |
+| Whole-graph ggml offload of the decoder | Reachable (rewrite 2 `ArgMax` → `TopK`, then the plugin claims 1301/1301 nodes and 147.6 MiB of weights), but **0.2–0.3×**: one step is 25–43 ms vs 8–12 ms on CPU |
+| ORT thread / arena / spinning sweep | No variant clears the noise floor; `IntraOpNumThreads` 8 and 12 are actively worse |
+| `weights=q8_0` on the offloaded decoder | Helps the flush (13.1 → 9.4 ms at kv=32) but still loses to CPU |
 
-The honest summary: the decoder is bandwidth-bound on a single CPU core's memory path, and
-no configuration switch changes that. Getting a real speedup there needs device-resident KV
-caches, fixed-shape export, and IOBinding — a model-side project, not a runtime tweak.
+The honest summary: the decoder step is bound by **node count and layout**, not by the 72 MB
+weight set. 37% is `DynamicQuantizeMatMul`, 39% is `Transpose`/`Concat`/`Reshape`/`Unsqueeze`
+that exist only to satisfy the exporter, and threads change nothing because there is no
+bandwidth to saturate. Moving the graph to the GPU moves the same per-node work to a place
+where the plugin must also rebuild the graph each run, so it is strictly slower. The useful
+directions are folding the 48 per-layer KV `Reshape`+`Transpose` chains and reducing the
+quantized-matmul count in the exporter — see
+[docs/DECODER_BASELINE.md](docs/DECODER_BASELINE.md).
 
 ---
 
@@ -157,6 +168,10 @@ VocoderRetriggerFactor: 4.0
 # GPU vocoder (ggml/Vulkan). Falls back to CPU if the plugin is missing.
 UseVocoderGgml: true
 
+# Use the native-KV-layout decoders when generated (see docs/DECODER_BASELINE.md).
+# 1.07-1.13x on the decode loop; falls back to the shipped models if absent.
+UseNativeKvLayout: true
+
 # ONNX Runtime threads. 0 lets ORT decide.
 IntraOpNumThreads: 0
 InterOpNumThreads: 1
@@ -164,6 +179,9 @@ InterOpNumThreads: 1
 
 One setting is worth leaving alone unless you have a reason: `IntraOpAllowSpinning: true`
 contends with the concurrent vocoder and made multi-sentence requests slower in testing.
+`IntraOpNumThreads` is the same story: the decode step is bound by per-node dispatch, so
+anything other than letting ORT decide is neutral at best and 8–12 threads are measurably
+worse (see [docs/DECODER_BASELINE.md](docs/DECODER_BASELINE.md)).
 
 See [`config.template.yaml`](config.template.yaml) for every option with comments.
 
@@ -225,6 +243,21 @@ dotnet run --project tools/audio_regression -c Release -- --resources resources
 
 # Streaming failure stress test
 dotnet run --project tools/stream_stress -c Release -- --resources resources
+
+# Decoder single-step latency (CPU vs ggml), p50/p95 per KV length
+dotnet run --project tools/decoder_bench -c Release -- --steps 40
+
+# ORT kernel hotspots for one decoder step
+dotnet run --project tools/decoder_profile -c Release -- --kv 96 --iy 2
+
+# Session-option A/B, interleaved over rounds
+dotnet run --project tools/runtime_ab -c Release -- --rounds 8
+
+# Flat vs native KV cache layout, interleaved (needs the generated models)
+dotnet run --project tools/kv_layout_ab -c Release -- --rounds 7
+
+# What the ggml plugin claims for a graph, and what it names as missing
+dotnet run --project tools/ggml_probe -c Release -- resources/models_v1/chenxing/t2s_stage_decoder.onnx 1
 ```
 
 ---

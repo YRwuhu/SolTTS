@@ -1,0 +1,16 @@
+[package]
+name = "rust_probe"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rayon = "1.12"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[[bin]]
+name = "rust_probe"
+path = "src/main.rs"

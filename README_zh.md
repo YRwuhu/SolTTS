@@ -57,9 +57,11 @@
 | 三句话，流式，到首包 | 约 0.55 秒 |
 | 模型加载（冷启动） | 约 7 秒 |
 
-单句里大约 85% 的时间花在自回归语义解码上：约 95 步，每步 15.7 毫秒。这个开销受内存带宽
-限制（每步要读约 72 MB 的 INT8 权重），所以"扔到 GPU 上就好了"这类想法在这里基本不成立。
-具体的实验和失败结论见[性能笔记](#性能笔记)。
+单句里大约 85% 的时间花在自回归语义解码上：约 95 步，每步 11–15 毫秒。这个开销**不是**
+内存带宽（早期笔记里写错了）：ORT 自己的算子分析显示，一步里 37% 是 `DynamicQuantizeMatMul`、
+39% 是 `Transpose`/`Concat`/`Reshape`/`Unsqueeze` 这类布局算子，而且线程数怎么调都没有
+可测量的差别。GPU 卸载也救不了，见[性能笔记](#性能笔记)与
+[docs/DECODER_BASELINE.md](docs/DECODER_BASELINE.md) 里的实测数据。
 
 ---
 
@@ -91,6 +93,7 @@
 | BERT 特征缓存 | 重复文本省掉一次约 280–390 毫秒的前向 |
 | Rust 原生音频（`sol_audio`） | 音频管线 p99 27 微秒 → 4 微秒；环形缓冲区 0.70 → 0.05 微秒 |
 | `GraphOptimizationLevel: 2` | ORT 把解码器从 1300 节点融合到 696（`DynamicQuantizeMatMul`、`SkipLayerNormalization`、`FusedMatMul`）；95 步完整 rollout token 序列一致 |
+| 原生 KV 布局（`UseNativeKvLayout`，默认开） | 解码器布局算子 369 → 273 节点，**每步 1.07–1.13 倍**。logits 与合成音频**逐位相同**。需要对每个资源目录跑一次 `tools/converter/fuse_kv_layout.py`；生成文件缺失时自动回退到原模型 |
 
 ### 没用的
 
@@ -105,9 +108,16 @@
 | 用量化矩阵乘的 `QLinearMatMul` 融合 | 否决：它输出 int8，但 int32 累加器范围是 ±20000，会饱和丢精度 |
 | 手写 QKV `Split` 融合 | 多余：GOL=2 时 ORT 自己做同样的融合，两个模型都优化成 696 节点。脚本保留，仅 GOL 0/1 时有用 |
 | macOS 上的 CoreML | 对这些模型比 CPU 还慢 |
+| 解码器整图 ggml 卸载 | 可达（把 2 个 `ArgMax` 改写成 `TopK`，插件就认领 1301/1301 节点、147.6 MiB 权重常驻），但实测 **0.2–0.3 倍**：每步 25–43 毫秒，CPU 是 8–12 毫秒 |
+| ORT 线程 / 内存池 / spinning 全组合 | 没有任何一项超出噪声；`IntraOpNumThreads` 8 和 12 反而更慢 |
+| 卸载后用 `weights=q8_0` | 能压低 flush（kv=32 时 13.1 → 9.4 毫秒），但仍然打不过 CPU |
 
-说句实话：解码器卡在单核内存带宽上，改配置救不了。想真正提速，需要把 KV cache 常驻显存、
-导出固定形状、用 IOBinding 省掉每步的主机往返——这是模型侧的工作，不是运行时调参。
+说句实话：解码器一步的瓶颈是**节点数和布局**，不是那 72 MB 权重。37% 是
+`DynamicQuantizeMatMul`，39% 是纯粹为迁就导出格式而存在的
+`Transpose`/`Concat`/`Reshape`/`Unsqueeze`；线程数没用，因为根本没有带宽可压。把图搬到
+GPU 只是把同样的逐节点开销搬到一个还要每次重建图的地方，所以只会更慢。真正值得做的是
+把每层那 48 条 KV `Reshape`+`Transpose` 链折掉、并减少导出器产生的量化矩阵乘数量，详见
+[docs/DECODER_BASELINE.md](docs/DECODER_BASELINE.md)。
 
 ---
 
@@ -149,13 +159,19 @@ VocoderRetriggerFactor: 4.0
 # GPU 声码器（ggml/Vulkan），插件缺失时自动退回 CPU
 UseVocoderGgml: true
 
+# 使用原生 KV 布局的解码器（需先用 tools/converter/fuse_kv_layout.py 生成）。
+# 解码循环约 1.07-1.13 倍；文件不存在时回退到原模型。
+UseNativeKvLayout: true
+
 # ONNX Runtime 线程数，0 表示交给 ORT 决定
 IntraOpNumThreads: 0
 InterOpNumThreads: 1
 ```
 
 有一项除非你有明确理由，否则建议别动：`IntraOpAllowSpinning: true` 会和并发的声码器抢
-CPU，实测让多句请求变慢。
+CPU，实测让多句请求变慢。`IntraOpNumThreads` 同理：解码一步是逐节点调度受限的，除了让
+ORT 自己决定以外基本都是中性，8 到 12 线程实测反而更慢（数据见
+[docs/DECODER_BASELINE.md](docs/DECODER_BASELINE.md)）。
 
 所有选项及说明见 [`config.template.yaml`](config.template.yaml)。
 

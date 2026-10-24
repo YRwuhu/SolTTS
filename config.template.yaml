@@ -28,13 +28,18 @@ UseEngineV2: false
 # IntraOpNumThreads: threads for intra-operator parallelism. Recommended: physical core count (e.g., 4, 8, 16); 0 = automatic
 # (On macOS, automatic mode selects performance P-cores to avoid slowdown from efficiency cores.)
 IntraOpNumThreads: 0
-# InterOpNumThreads: threads for inter-operator parallelism. For the chained TTS graph, 1 is recommended; 0 = automatic
-InterOpNumThreads: 0
+# InterOpNumThreads: threads for inter-operator parallelism. The TTS graphs are a single chain, so
+# 1 (no inter-op pool) is right; 0 means "let ORT decide". Measured on the native-KV decoder,
+# 12 interleaved rounds: 1 gives 12.73 ms vs 13.29 ms for 0 (0.96x, ~4% faster). Default 1.
+InterOpNumThreads: 1
 # GraphOptimizationLevel: graph optimization level (0=disabled, 1=basic, 2=all).
 GraphOptimizationLevel: 2
-# IntraOpAllowSpinning: allow ORT operator threads to spin-wait. Reduces wake-up latency for small operators
-# but competes with concurrent vocoder threads for CPU; default false.
-IntraOpAllowSpinning: false
+# IntraOpAllowSpinning: allow ORT operator threads to spin-wait. Reduces wake-up latency for small operators.
+# Measured on the native-KV decoder, 12 interleaved rounds at kv=160: on 11.59 ms vs off 12.83 ms (0.90x,
+# ~10% faster per decode step). A decode step is 97 tiny matvecs, so wake-up latency is a real share of it.
+# The tradeoff is CPU contention with the vocoder threads; on the single-sentence decode path the decoder
+# is the long pole, so this wins. Default true.
+IntraOpAllowSpinning: true
 # ParallelExecution: use ORT_PARALLEL execution mode (inter-operator parallelism). No measurable benefit; default false.
 ParallelExecution: false
 # ParallelSentenceDegree: maximum number of sentences decoded in parallel for non-streaming multi-sentence synthesis (1=off).
@@ -50,10 +55,11 @@ UseVocoderGgml: true
 # UseBertCache: enable BERT feature caching. Reuses results for repeated synthesis of the same text (including alignment),
 # avoiding a ~280–390 ms BERT forward pass; the cache lives with the engine instance, capacity 256 (FIFO eviction). Default true.
 UseBertCache: true
-# UseBertNoLoopModel: use the loop-free roberta variant (roberta_noloop.onnx).
-# It replaces the Loop node responsible for ~278 ms of CPU control flow with equivalent vectorized operators (a CumSum+Gather
-# implementation of repeat_interleave), benefiting both CPU and GPU backends. Falls back to the original model if the file is missing.
-# Default false: first verify with the comparison tool that both produce bit-identical output.
+# UseBertNoLoopModel: load roberta_noloop.onnx instead of roberta.onnx.
+# The shipped roberta.onnx in this resource tree already has no Loop node (its repeat_interleave is
+# already the vectorised CumSum+Gather form), so there is nothing left to replace and the file
+# roberta_noloop.onnx is not provided. Leave this false; tools/converter/roberta_noloop.py only
+# applies to an older roberta.onnx that still contains /SplitToSequence.
 UseBertNoLoopModel: false
 # UseBertGgml: experimental; runs BERT on ggml/Vulkan. Measured with onnxruntime-ggml v0.2.0, roberta
 # returns "claiming nothing" (22 Gelu nodes unsupported); the whole graph still runs on CPU with extra plugin overhead,
@@ -71,6 +77,15 @@ UseStageDecoderLoopModel: false
 # optimize to 696 nodes. This switch only matters at GOL 0/1. Default false.
 # Generate with tools/converter/fuse_qkv_split.py.
 UseFusedQkvDecoder: false
+# UseNativeKvLayout: load the native-KV-layout decoders when present
+# (t2s_stage_decoder_kvlayout.onnx / t2s_first_stage_decoder_kvlayout.onnx).
+# They store past_/present_ as K=[1,16,32,S] and V=[1,16,S,32], which removes 48
+# per-layer Reshape+Transpose chains that each touched the whole cache. Measured
+# 1.07-1.13x per decode step with bit-identical logits and rendered audio.
+# The decode loop already feeds present_* back as past_*, so no other change is
+# needed. Generate the models with tools/converter/fuse_kv_layout.py; this falls
+# back to the shipped models when the files are absent. Default true.
+UseNativeKvLayout: true
 # UseCoreML: macOS only. Default false: measured CoreML is actually slower than pure CPU for GPT-SoVITS models
 # (factor graph partitioning + ANE/CPU data transfer overhead). Enable only if your model genuinely benefits.
 UseCoreML: false

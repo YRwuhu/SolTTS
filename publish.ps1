@@ -40,10 +40,20 @@ if (Test-Path "resources-minimal") {
     Copy-Item -Path "resources-minimal" -Destination "$PublishDir/resources" -Recurse -Force
 }
 
-# Copy the tools directory
-if (Test-Path "tools") {
-    Write-Host "📦 Copying tools directory..." -ForegroundColor Yellow
-    Copy-Item -Path "tools" -Destination "$PublishDir/tools" -Recurse -Force
+# Copy the converter tooling only, matching publish-linux.sh and publish-mac.sh.
+# Copying all of `tools` pulled in the probe projects and their bin/obj (~1 GB of
+# experiment binaries) into the release.
+if (Test-Path "tools/converter") {
+    Write-Host "📦 Copying converter tools..." -ForegroundColor Yellow
+    $toolsDst = Join-Path $PublishDir "tools/converter"
+    New-Item -ItemType Directory -Force -Path $toolsDst | Out-Null
+    Copy-Item -Path "tools/converter/*.py" -Destination $toolsDst -Force
+    if (Test-Path "tools/converter/templates") {
+        Copy-Item -Path "tools/converter/templates" -Destination $toolsDst -Recurse -Force
+    }
+    if (Test-Path "tools/converter/runtime") {
+        Copy-Item -Path "tools/converter/runtime" -Destination $toolsDst -Recurse -Force
+    }
 }
 
 # Native audio primitives (optional): sol_audio.dll is copied by the csproj None items during publish.

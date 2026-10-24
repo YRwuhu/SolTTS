@@ -275,6 +275,18 @@ namespace SolTTS.Core.Config
         public bool UseFusedQkvDecoder { get; set; } = false;
 
         /// <summary>
+        /// Load the native-KV-layout decoders when present (t2s_stage_decoder_kvlayout.onnx /
+        /// t2s_first_stage_decoder_kvlayout.onnx). These store past_/present_ caches as
+        /// K=[1,16,32,S] and V=[1,16,S,32], which removes 48 per-layer Reshape+Transpose
+        /// chains that each touched the whole cache. Measured 1.10-1.23x on the CPU decode
+        /// loop with bit-identical logits (see docs/DECODER_BASELINE.md). The decode loop
+        /// feeds present_* straight back as past_* in the same layout, so no caller change
+        /// is needed. Falls back to the shipped models when the files are absent.
+        /// Generate with tools/converter/fuse_kv_layout.py.
+        /// </summary>
+        public bool UseNativeKvLayout { get; set; } = true;
+
+        /// <summary>
         /// Whether to enable BERT feature caching. When enabled, repeated calls with the same text (including alignment)
         /// reuse the result, saving one BERT forward pass of about 280–390 ms. The cache lives with the engine instance. Default true.
         /// </summary>
@@ -366,9 +378,11 @@ namespace SolTTS.Core.Config
         public int IntraOpNumThreads { get; set; } = 0;
 
         /// <summary>
-        /// Number of inter-op parallel threads in ONNX Runtime. 0 means use the default.
+        /// Number of inter-op parallel threads in ONNX Runtime. 1 disables the inter-op pool, which is
+        /// right for these single-chain TTS graphs. Measured on the native-KV decoder (12 interleaved
+        /// rounds): 1 gives 12.73 ms vs 13.29 ms for 0, i.e. ~4% faster.
         /// </summary>
-        public int InterOpNumThreads { get; set; } = 0;
+        public int InterOpNumThreads { get; set; } = 1;
 
         /// <summary>
         /// Graph optimization level (0=disabled, 1=basic, 2=aggressive).
@@ -387,10 +401,12 @@ namespace SolTTS.Core.Config
         public int GraphOptimizationLevel { get; set; } = 2;
 
         /// <summary>
-        /// Whether to allow ORT operator threads to spin-wait. Default false (more power-efficient on Windows,
-        /// but higher scheduling latency for small operators). Enabling is recommended for per-token decoding workloads to reduce wake-up latency.
+        /// Whether to allow ORT operator threads to spin-wait. Default true: a decode step is 97 tiny matvecs,
+        /// and measured on the native-KV decoder at kv=160 spinning is 0.90x (11.59 vs 12.83 ms, 12 interleaved
+        /// rounds), so wake-up latency is a real share of the step. The cost is CPU contention with vocoder
+        /// threads, which matters when both run concurrently.
         /// </summary>
-        public bool IntraOpAllowSpinning { get; set; } = false;
+        public bool IntraOpAllowSpinning { get; set; } = true;
 
         /// <summary>
         /// Whether to use ORT_PARALLEL execution mode (inter-op parallelism). Default false (sequential execution).

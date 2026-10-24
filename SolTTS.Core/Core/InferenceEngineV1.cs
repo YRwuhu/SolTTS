@@ -28,6 +28,13 @@ namespace SolTTS.Core.Core
         private InferenceSession? _stageDecoderLoop;
         private InferenceSession? _vocoder;
 
+        /// <summary>
+        /// Whether both native-KV-layout decoders are in use. They must be a matched
+        /// pair (see LoadModels); the load helpers consult this instead of the raw
+        /// config flag so a half-generated model set cannot be picked up.
+        /// </summary>
+        private bool UseNativeKvLayoutDecoders;
+
         // Decode loop name/index cache: avoids per-token LINQ name lookups and string interpolation.
         private const int KvLayerCount = 24;
         private static readonly string[] PastKNames = BuildLayerNames("past_k_layer_");
@@ -221,9 +228,24 @@ namespace SolTTS.Core.Core
             this.DebugMode = config.DebugMode;
             var opt = GetSessionOptions(config);
 
+            // The two native-KV-layout decoders must be used together: they are the
+            // only pair whose cache layouts match, and the decode loop hands the
+            // first stage's present_* straight to the stage decoder. If only one of
+            // the files exists, using it would silently corrupt the decode loop, so
+            // require both and otherwise fall back to the shipped models as a pair.
+            UseNativeKvLayoutDecoders = config.UseNativeKvLayout
+                && File.Exists(Path.Combine(modelDir, "t2s_stage_decoder_kvlayout.onnx"))
+                && File.Exists(Path.Combine(modelDir, "t2s_first_stage_decoder_kvlayout.onnx"));
+            if (config.UseNativeKvLayout && !UseNativeKvLayoutDecoders && config.DebugMode)
+            {
+                Console.WriteLine(
+                    "[Decoder] UseNativeKvLayout is on but only one native-KV model is present; " +
+                    "using the shipped pair. Generate both with tools/converter/fuse_kv_layout.py.");
+            }
+
             Parallel.Invoke(
                 () => _t2sEncoder = LoadModelWithFallback(Path.Combine(modelDir, "t2s_encoder.onnx"), config),
-                () => _firstStageDecoder = LoadModelWithFallback(Path.Combine(modelDir, "t2s_first_stage_decoder.onnx"), config),
+                () => _firstStageDecoder = LoadFirstStageDecoder(modelDir, config),
                 () => _stageDecoder = LoadStageDecoder(modelDir, config),
                 () => _stageDecoderLoop = LoadStageDecoderLoop(modelDir, config),
                 () => _vocoder = LoadVocoderWithFallback(Path.Combine(modelDir, "vits.onnx"), config),
@@ -253,14 +275,57 @@ namespace SolTTS.Core.Core
         }
 
         /// <summary>
-        /// 加载 stage decoder，优先使用 QKV Split 融合变体。
+        /// 加载 first stage decoder：优先 native KV 布局变体。
         ///
-        /// 原图每层把 Q/K/V 用三次 Slice 切开；融合版用一次 Split，少 48 个节点。
-        /// 两者逐位等价（已验证 51/51 输出 diff=0），融合版只是少了两次算子调度。
-        /// 融合模型不存在时自动回退原图。
+        /// native 版本把 past_/present_ 存成 K=[1,16,32,S]、V=[1,16,S,32]，省掉每层
+        /// 对整块缓存做的 Reshape+Transpose；first stage 只在每句开头跑一次，收益小，
+        /// 但它必须和 stage decoder 用同一种布局，否则 next_tokens 无法回喂。
+        /// 数值已验证逐位等价（logits/KV maxdiff = 0，见 docs/DECODER_BASELINE.md）。
+        /// </summary>
+        private InferenceSession LoadFirstStageDecoder(string modelDir, SolTTS.Core.Config.TTSConfig config)
+        {
+            string native = Path.Combine(modelDir, "t2s_first_stage_decoder_kvlayout.onnx");
+            if (UseNativeKvLayoutDecoders && File.Exists(native))
+            {
+                try
+                {
+                    var s = LoadModelWithFallback(native, config);
+                    DebugLog("[FirstStageDecoder] 使用 native KV 布局模型");
+                    return s;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ [FirstStageDecoder] native KV 模型加载失败，回退原图: {ex.Message}");
+                }
+            }
+            return LoadModelWithFallback(Path.Combine(modelDir, "t2s_first_stage_decoder.onnx"), config);
+        }
+
+        /// <summary>
+        /// 加载 stage decoder，优先级：native KV 布局 > QKV Split 融合 > 原图。
+        ///
+        /// native KV 版本省掉每层对整块缓存的 Reshape+Transpose，实测每步 1.07-1.13 倍，
+        /// 且必须与 first stage decoder 配对使用（两者布局相同才能直接回喂）。
+        /// QKV 融合版用一次 Split 代替三次 Slice；GOL=2 时 ORT 自己也会做同样的融合，
+        /// 因此该变体只在 GOL 0/1 下有额外收益。两者缺失时都会自动回退。
         /// </summary>
         private InferenceSession LoadStageDecoder(string modelDir, SolTTS.Core.Config.TTSConfig config)
         {
+            string native = Path.Combine(modelDir, "t2s_stage_decoder_kvlayout.onnx");
+            if (UseNativeKvLayoutDecoders && File.Exists(native))
+            {
+                try
+                {
+                    var s = LoadModelWithFallback(native, config);
+                    DebugLog("[StageDecoder] 使用 native KV 布局模型");
+                    return s;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ [StageDecoder] native KV 模型加载失败，回退原图: {ex.Message}");
+                }
+            }
+
             string fused = Path.Combine(modelDir, "t2s_stage_decoder_qkv.onnx");
             if (config.UseFusedQkvDecoder && File.Exists(fused))
             {

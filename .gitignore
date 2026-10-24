@@ -152,3 +152,4 @@ resources/emotion_vectors_test/
 tools/emotion/*.npy
 .zcode/
 _tmp/
+onnxruntime_profile_*.json
