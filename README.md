@@ -5,296 +5,51 @@
 </p>
 
 <p align="center">
-  <strong>🎙️ A fast, self-hosted TTS engine — ONNX Runtime, C#, no Python at runtime</strong>
+  Local text-to-speech with voice cloning, streaming playback and mixed-language support.<br>
+  Runs on ONNX Runtime and .NET. No Python required at runtime.
 </p>
 
 <p align="center">
-  <a href="README_zh.md">中文文档</a> ·
-  <a href="https://github.com/YRwuhu/SolTTS/releases">Downloads</a> ·
-  <a href="docs/EMOTION_CONTROL.md">Emotion control</a>
+  <a href="README_zh.md">中文</a> ·
+  <a href="https://github.com/YRwuhu/SolTTS/releases">Downloads</a>
 </p>
 
----
+## Usage
 
-## What is this
+Download the Windows package from [Releases](https://github.com/YRwuhu/SolTTS/releases), extract it, and keep `resources/` next to the executables. No .NET installation is needed.
 
-SolTTS is a text-to-speech server and CLI. You give it text, it gives you audio. It runs
-entirely on ONNX Runtime inside .NET — no Python, no PyTorch, no conda at runtime.
+Run `sol-server.exe` and open <http://localhost:5000> for the WebUI, or use the CLI:
 
-It supports voice cloning from a short reference recording, mixed Chinese/English/Japanese
-reading, streaming playback, and (experimentally) emotion guidance without an emotional
-reference clip.
-
-**This repository is a fork.** The original project by Blackwood416 is no longer available
-at its old address. This fork carries the v1.2.2 codebase plus a set of measured performance
-and reliability changes, listed below.
-
----
-
-## Quick start (Windows)
-
-1. Download `SolTTS-v1.2.2-win64.zip` from [Releases](https://github.com/YRwuhu/SolTTS/releases).
-2. Extract it anywhere. Keep the `resources/` folder next to the executables.
-3. Run `sol-server.exe`, then open <http://localhost:5000>.
-4. Or for a quick one-shot file: `sol-cli.exe -O out.wav -- "今天天气真好。"`
-
-No .NET installation is needed — the package is self-contained.
-
-### Linux / macOS
-
-Build from source (see below). The Linux package does not embed the Python model-converter
-environment; run `./init-env.sh` once if you need the converter page.
-
-The macOS build uses the V1 engine only.
-
----
-
-## What's actually fast, and what isn't
-
-We measured everything on a Ryzen 5 5500 (6C/12T) + Radeon RX 5500 XT. Numbers below are
-medians, not best-case picks.
-
-| Case | Latency |
-|---|---|
-| Single short sentence (~4 s audio) | ~2.0 s |
-| Three sentences, non-streaming | ~2.2 s |
-| Three sentences, streaming, time to first audio | ~0.55 s |
-| Model load (cold start) | ~7 s |
-
-Roughly 85% of a single sentence is the autoregressive semantic decoder: about 95 steps at
-~11–15 ms each. That cost is **not** memory bandwidth, despite what earlier notes here said:
-ORT's own kernel profile puts 37% of a step in `DynamicQuantizeMatMul` and 39% in layout ops
-(`Transpose`/`Concat`/`Reshape`/`Unsqueeze`), and thread count makes no measurable difference.
-GPU offload does not help either — see [Performance notes](#performance-notes) and
-[docs/DECODER_BASELINE.md](docs/DECODER_BASELINE.md) for the measurements behind both claims.
-
----
-
-## Features
-
-- **Voice cloning** from a few seconds of reference audio.
-- **Streaming** output with roughly half a second to first audio.
-- **Mixed-language reading** — Chinese/English and Chinese/Japanese in one sentence.
-- **Emotion guidance** (experimental) — steer happy/angry/sad etc. by injecting a direction
-  vector into the speaker embedding. No emotional reference audio needed.
-  See [docs/EMOTION_CONTROL.md](docs/EMOTION_CONTROL.md).
-- **WebUI** for voice management, model conversion, and parameter tuning.
-- **Concurrent requests** through an inference pool.
-- **GPU vocoder** via the ggml/Vulkan plugin, with automatic CPU fallback.
-
----
-
-## Performance notes
-
-These are the things that were tried, and what actually happened. Keeping the negative
-results here so nobody re-runs them.
-
-### What helped
-
-| Change | Effect |
-|---|---|
-| Vocoder on GPU (ggml/Vulkan) | vits kernels ~5×; ~25% end-to-end non-streaming, ~2× streaming |
-| Parallel sentence decoding (`ParallelSentenceDegree: 3`) | 3 sentences: ~3.5 s → ~2.4 s |
-| Streaming cross-sentence overlap | Next sentence's decoder starts while the previous sentence's vocoder runs; ~10% off streaming total |
-| `VocoderRetriggerFactor: 4.0` | Vocoder calls 56 → 42 per run; vocoder time −29%; streaming total ~−10% |
-| BERT feature cache | Saves a ~280–390 ms forward pass on repeated text |
-| Rust native audio (`sol_audio`) | Audio pipeline p99 27 µs → 4 µs; ring buffer 0.70 µs → 0.05 µs per chunk |
-| `GraphOptimizationLevel: 2` | ORT fuses the decoder 1300 → 696 nodes (`DynamicQuantizeMatMul`, `SkipLayerNormalization`, `FusedMatMul`); token sequence identical over a full 95-step rollout |
-| Native KV cache layout (`UseNativeKvLayout`, on by default) | Decoder layout ops 369 → 273 nodes; **1.07–1.13×** per decode step. Logits and rendered audio are **bit-identical**. Requires running `tools/converter/fuse_kv_layout.py` once per resource tree; falls back to the shipped models if the generated files are absent |
-
-### What did not help
-
-| Attempt | Result |
-|---|---|
-| INT8-quantizing the decoders | Already INT8 in the shipped graphs (`MatMulInteger` + `DynamicQuantizeLinear`) |
-| BERT on GPU | **1.7× slower** (294 → 489 ms). The plugin refuses the graph ("22 of 1089 nodes use ops this provider lacks: Gelu") |
-| ggml `partial` offload of the decoder | 14.63 ms/step vs 15.71 ms on CPU — 7%, not worth the memory |
-| Merging decode steps into one ONNX `Loop` | 1.02× / 0.98× — inside noise |
-| Shortening the decoder's `iy` input | 109 → 2 tokens changes nothing (15.36 → 15.25 ms/step) |
-| Incremental vocoding (decode only new tokens) | Not possible: the VITS `enc_p` attention and flow depend on the whole sequence |
-| `QLinearMatMul` fusion of the quantized matmuls | Rejected: its output is int8, but the int32 accumulators span ±20000, so results saturate |
-| Hand-written QKV `Split` fusion | Redundant: at GOL 2 ORT performs the same fusion, so both models optimize to 696 nodes. Kept as a script for GOL 0/1 only |
-| CoreML on macOS | Slower than CPU for these models |
-| Whole-graph ggml offload of the decoder | Reachable (rewrite 2 `ArgMax` → `TopK`, then the plugin claims 1301/1301 nodes and 147.6 MiB of weights), but **0.2–0.3×**: one step is 25–43 ms vs 8–12 ms on CPU |
-| ORT thread / arena / spinning sweep | No variant clears the noise floor; `IntraOpNumThreads` 8 and 12 are actively worse |
-| `weights=q8_0` on the offloaded decoder | Helps the flush (13.1 → 9.4 ms at kv=32) but still loses to CPU |
-
-The honest summary: the decoder step is bound by **node count and layout**, not by the 72 MB
-weight set. 37% is `DynamicQuantizeMatMul`, 39% is `Transpose`/`Concat`/`Reshape`/`Unsqueeze`
-that exist only to satisfy the exporter, and threads change nothing because there is no
-bandwidth to saturate. Moving the graph to the GPU moves the same per-node work to a place
-where the plugin must also rebuild the graph each run, so it is strictly slower. The useful
-directions are folding the 48 per-layer KV `Reshape`+`Transpose` chains and reducing the
-quantized-matmul count in the exporter — see
-[docs/DECODER_BASELINE.md](docs/DECODER_BASELINE.md).
-
----
-
-## Engine comparison
-
-V1 is the default and is what the numbers above were measured on. V2 is present in the code
-but **cannot run as shipped** — there are no `models_v2` files and no V2 converter.
-
-| | V1 (recommended) | V2 (experimental) |
-|---|---|---|
-| Origin | Genie-TTS architecture | GPT-SoVITS-Minimal |
-| Status | Stable | Incomplete, no models shipped |
-| Languages | ZH/EN and ZH/JA | ZH/EN |
-| Sampling | Deterministic | TopK / temperature |
-| Emotion control | Yes | No |
-| GPU vocoder | Yes | No |
-| Parallel sentences / streaming overlap | Yes | No |
-
-If you want speed, use V1. Completing V2 would at best match V1, because its decode loop
-clones the entire KV cache every token.
-
----
-
-## Configuration
-
-Everything lives in `config.yaml`. Only a few settings matter for performance:
-
-```yaml
-ResourcesDir: "./resources"
-DefaultAvatarId: chenxing
-
-# Parallel sentence decoding for non-streaming requests. 1 disables it.
-ParallelSentenceDegree: 3
-
-# How aggressively the streaming vocoder re-triggers.
-# Higher = fewer recomputes = faster, but longer chunks between audio updates.
-VocoderRetriggerFactor: 4.0
-
-# GPU vocoder (ggml/Vulkan). Falls back to CPU if the plugin is missing.
-UseVocoderGgml: true
-
-# Use the native-KV-layout decoders when generated (see docs/DECODER_BASELINE.md).
-# 1.07-1.13x on the decode loop; falls back to the shipped models if absent.
-UseNativeKvLayout: true
-
-# ONNX Runtime threads. 0 lets ORT decide.
-IntraOpNumThreads: 0
-InterOpNumThreads: 1
+```bash
+sol-cli.exe -O out.wav -- "今天天气真好。"
 ```
 
-One setting is worth leaving alone unless you have a reason: `IntraOpAllowSpinning: true`
-contends with the concurrent vocoder and made multi-sentence requests slower in testing.
-`IntraOpNumThreads` is the same story: the decode step is bound by per-node dispatch, so
-anything other than letting ORT decide is neutral at best and 8–12 threads are measurably
-worse (see [docs/DECODER_BASELINE.md](docs/DECODER_BASELINE.md)).
+The WebUI also handles voice management, model conversion and settings. On Linux, run `./init-env.sh` first if you need the model converter. macOS supports the V1 engine only.
 
-See [`config.template.yaml`](config.template.yaml) for every option with comments.
+The default V1 engine supports Chinese/English and Chinese/Japanese, plus experimental [emotion control](docs/EMOTION_CONTROL.md). V2 is incomplete and has no bundled models.
 
-### Resource layout
+## Build
 
-```text
-resources/
-├── models_v1/{avatarId}/     # t2s_*.onnx, vits.onnx, prompt_encoder.onnx
-├── shared/
-│   ├── g2p/                  # dictionaries and G2P models
-│   └── v1_extra/             # bert, hubert, speaker_encoder
-├── avatars/{avatarId}/       # reference audio
-└── emotion_vectors/          # tau vectors for emotion control
-```
-
----
-
-## Building from source
-
-Requirements: .NET 10 SDK. Optional: Rust toolchain for the native audio library.
+Requires .NET 10 SDK.
 
 ```bash
 dotnet build SolTTS.sln -c Release
 
-# Windows package
-./publish.ps1
-
-# Linux
-./publish-linux.sh
-
-# macOS
-./publish-mac.sh
+./publish.ps1        # Windows
+./publish-linux.sh   # Linux
+./publish-mac.sh     # macOS
 ```
 
-### Native audio library (optional)
+See [`config.template.yaml`](config.template.yaml) for configuration options. The optional Rust audio library has its own [build instructions](native/sol_audio/README.md).
 
-The real-time playback path can use a small Rust library instead of the managed
-implementation. It is optional — if the DLL is missing everything falls back to C#.
+## Performance
 
-```bash
-cd native/sol_audio
-cargo build --release
-```
+On a Ryzen 5 5500 and Radeon RX 5500 XT, a short sentence takes about 2 seconds to synthesize. Streaming playback starts in about 0.55 seconds, with a cold-start model load of around 7 seconds.
 
-Then set `UseNativeAudio: true`. See [native/sol_audio/README.md](native/sol_audio/README.md)
-for the equivalence tests and benchmarks.
-
-### Diagnostic tools
-
-```bash
-# End-to-end smoke test: both paths must produce non-empty audio
-dotnet run --project tools/stream_check -c Release -- --resources resources
-
-# Latency, single/multi-sentence, streaming
-dotnet run --project tools/latency_bench -c Release -- --resources resources
-
-# Structural regression for parallel decoding
-dotnet run --project tools/audio_regression -c Release -- --resources resources
-
-# Streaming failure stress test
-dotnet run --project tools/stream_stress -c Release -- --resources resources
-
-# Decoder single-step latency (CPU vs ggml), p50/p95 per KV length
-dotnet run --project tools/decoder_bench -c Release -- --steps 40
-
-# ORT kernel hotspots for one decoder step
-dotnet run --project tools/decoder_profile -c Release -- --kv 96 --iy 2
-
-# Session-option A/B, interleaved over rounds
-dotnet run --project tools/runtime_ab -c Release -- --rounds 8
-
-# Flat vs native KV cache layout, interleaved (needs the generated models)
-dotnet run --project tools/kv_layout_ab -c Release -- --rounds 7
-
-# What the ggml plugin claims for a graph, and what it names as missing
-dotnet run --project tools/ggml_probe -c Release -- resources/models_v1/chenxing/t2s_stage_decoder.onnx 1
-```
-
----
-
-## Troubleshooting
-
-**"The model converter page does not work."**
-The Python runtime is not bundled in the zip (it is ~615 MB). Run `init-env.sh` /
-`init-env-mac.sh`, or install the converter dependencies yourself.
-
-**"GPU acceleration seems off."**
-Check that `onnxruntime_ggml.dll` sits next to the executables and that your GPU driver
-supports Vulkan. The app logs a fallback warning if the plugin cannot load. It cannot tell
-you whether the plugin actually claimed the graph — if you want proof, run with
-`DebugMode: true` and look for the plugin's capability lines.
-
-**"Streaming stops mid-sentence with an error."**
-Older builds could fail the whole request when the decoder's sampling went bad. This fork
-degrades instead: it returns the audio it managed to generate. If you still see hard
-failures, the model files are likely damaged.
-
-**"It is slower than the numbers above."**
-Those numbers assume `ParallelSentenceDegree: 3`, `VocoderRetriggerFactor: 4.0`, and a GPU
-vocoder. CPU-only builds are noticeably slower.
-
----
+These figures use parallel sentence decoding and the GPU vocoder. Benchmarks, implementation notes and less successful experiments are in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 
 ## License
 
 MIT. Original work © 2026 Blackwood416; fork modifications © 2026 YRwuhu.
 
-## Credits
-
-- [Genie-TTS](https://github.com/High-Logic/Genie-TTS) — V1 architecture reference
-- [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS) — V2 algorithms
-- [ONNX Runtime](https://onnxruntime.ai/) — inference backend
-- [NAudio](https://github.com/naudio/NAudio) — audio I/O
-- [wasapi_relink](https://github.com/Litttlefish/wasapi_relink) — low-latency WASAPI helper
-- [onnxruntime-ggml](https://github.com/thewh1teagle/onnxruntime-ggml) — Vulkan/Metal execution provider
-- [BreakingBad (AI-Hobbyist)](https://www.ai-hobbyist.com/thread-1143-1-1.html) — source of the bundled default voices
+Based on [AstraTTS](https://github.com/Blackwood416/AstraTTS), with architecture and algorithms from [Genie-TTS](https://github.com/High-Logic/Genie-TTS) and [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS).
