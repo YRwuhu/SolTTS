@@ -1,10 +1,6 @@
 # SolTTS
 
 <p align="center">
-  <img src="images/banner.png" alt="SolTTS Banner" width="400">
-</p>
-
-<p align="center">
   Local text-to-speech with voice cloning, streaming playback and mixed-language support.<br>
   Runs on ONNX Runtime and .NET. No Python required at runtime.
 </p>
