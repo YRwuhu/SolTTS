@@ -1,10 +1,6 @@
 # SolTTS
 
 <p align="center">
-  <img src="images/banner.png" alt="SolTTS Banner" width="400">
-</p>
-
-<p align="center">
   本地文本转语音，支持音色克隆、流式播放和中英 / 中日混读。<br>
   基于 ONNX Runtime 和 .NET，运行时不需要 Python。
 </p>
