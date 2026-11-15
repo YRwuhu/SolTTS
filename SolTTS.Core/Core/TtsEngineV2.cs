@@ -38,6 +38,9 @@ namespace SolTTS.Core.Core
 
         public int SamplingRate => _engine.SamplingRate;
 
+        /// <summary>V2 has no emotion direction injection.</summary>
+        public IReadOnlyList<EmotionInfo>? GetEmotionCatalog() => null;
+
         public async Task LoadAsync(TTSConfig config)
         {
             _config = config;
@@ -214,6 +217,8 @@ namespace SolTTS.Core.Core
 
         public async Task<TtsResult> PredictAsync(string text, TtsOptions options)
         {
+            RejectUnsupportedEmotion(options);
+
             // Detect the overall language tendency
             var overallMode = LanguageDetector.DetectMode(text);
             string? globalLangHint = (overallMode == LanguageDetector.LanguageMode.Japanese) ? "ja" : null;
@@ -251,6 +256,8 @@ namespace SolTTS.Core.Core
 
         public async IAsyncEnumerable<float[]> PredictStreamAsync(string text, TtsOptions options, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            RejectUnsupportedEmotion(options);
+
             // Detect the overall language tendency
             var overallMode = LanguageDetector.DetectMode(text);
             string? globalLangHint = (overallMode == LanguageDetector.LanguageMode.Japanese) ? "ja" : null;
@@ -273,6 +280,20 @@ namespace SolTTS.Core.Core
                     yield return chunk;
                 }
             }
+        }
+
+        /// <summary>
+        /// V2 has no emotion injection path. Reject an explicit emotion request instead of
+        /// silently producing neutral speech (which would look like the feature "worked").
+        /// </summary>
+        public static void RejectUnsupportedEmotion(TtsOptions options)
+        {
+            if (string.IsNullOrWhiteSpace(options.EmotionId)) return;
+            if (!EmotionCatalog.TryNormalize(options.EmotionId, out var canonical)) return;
+            if (EmotionCatalog.IsBaseline(canonical)) return;
+            throw new NotSupportedException(
+                $"Emotion '{canonical}' is not supported by the V2 engine; use the V1 engine (UseEngineV2=false) " +
+                "or omit the emotion for V2 synthesis.");
         }
 
         private (G2PResult res, long[] phoneIds, float[,] bert) ProcessFrontend(string text, TtsOptions options, string? explicitLanguage = null)

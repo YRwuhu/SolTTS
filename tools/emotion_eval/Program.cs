@@ -23,7 +23,7 @@ namespace SolTTSEmotionEval
 
             var outDir = GetArg(args, "--out") ?? @"E:\AI\SolTTS\_emotion_eval_cli";
             var text = GetArg(args, "--text") ?? "今天天气真好，我们一起去公园散步吧。";
-            var avatarId = GetArg(args, "--avatar") ?? "chenxing";
+            var avatarId = GetArg(args, "--avatar") ?? "atri";
             var emotions = (GetArg(args, "--emotions") ?? "neutral,happy,angry,sad,surprise,fearful,playfulness").Split(',');
             var alphas = (GetArg(args, "--alphas") ?? "0.1,0.3,0.5").Split(',');
             int repeats = int.TryParse(GetArg(args, "--repeats") ?? "1", out var rp) ? rp : 1;

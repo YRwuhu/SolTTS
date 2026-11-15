@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs><linearGradient id="app-bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1b2533"/><stop offset="1" stop-color="#10151e"/></linearGradient></defs>
+<rect width="1024" height="1024" rx="224" fill="url(#app-bg)"/>
+<rect x="1.5" y="1.5" width="1021" height="1021" rx="222.5" fill="none" stroke="#77aeff" stroke-opacity=".14" stroke-width="3"/>
+<svg x="70" y="70" width="884" height="884" viewBox="0 0 64 64"><defs>
+    <radialGradient id="solar-core" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(24 20) rotate(51) scale(43)">
+      <stop stop-color="#B9D7FF"/>
+      <stop offset="0.42" stop-color="#68A5FF"/>
+      <stop offset="1" stop-color="#1B6CF2"/>
+    </radialGradient>
+    <mask id="solar-pulse" maskUnits="userSpaceOnUse" x="8" y="8" width="48" height="48">
+      <circle cx="32" cy="32" r="21" fill="white"/>
+      <path d="M10 32H23L27 24L33 42L38 28L41 32H54" stroke="black" stroke-width="4.8" stroke-linecap="square" stroke-linejoin="miter"/>
+    </mask>
+  </defs>
+  <!-- A solid solar disc, an asymmetric prominence, and a speech pulse. -->
+  <circle cx="32" cy="32" r="21" fill="url(#solar-core)" mask="url(#solar-pulse)"/>
+  <path d="M42.5 7.5C50 10 55.5 15.5 58 22.5" stroke="#77AEFF" stroke-width="3.6" stroke-linecap="round"/>
+  <path d="M21.5 56.5C14 54 8.5 48.5 6 41.5" stroke="#3482FF" stroke-width="3.6" stroke-linecap="round"/>
+  <path d="M48.5 4.5C53.5 7 57.5 10.5 60 15.5" stroke="#3482FF" stroke-width="2" stroke-linecap="round"/>
+</svg></svg>

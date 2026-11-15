@@ -21,6 +21,11 @@ namespace SolTTS.Core.Core
         Task LoadAsync(Config.TTSConfig config);
 
         /// <summary>
+        /// Current readiness of the 19 emotion labels. Engines without emotion support return null.
+        /// </summary>
+        IReadOnlyList<EmotionInfo>? GetEmotionCatalog();
+
+        /// <summary>
         /// Run asynchronous inference and return the complete audio data with metadata.
         /// </summary>
         /// <param name="text">Text to synthesize.</param>

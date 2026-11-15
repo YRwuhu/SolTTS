@@ -124,6 +124,12 @@ namespace SolTTS.Core.Core
         }
 
         public int SamplingRate => _templateEngine?.SamplingRate ?? 32000;
+
+        /// <summary>
+        /// Emotion readiness snapshot from the template engine (all pooled engines share the same resources).
+        /// Returns null when the engine has no emotion support.
+        /// </summary>
+        public IReadOnlyList<EmotionInfo>? GetEmotionCatalog() => _templateEngine?.GetEmotionCatalog();
     }
 
     /// <summary>

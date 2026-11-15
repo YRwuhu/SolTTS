@@ -35,7 +35,7 @@ def main():
 
     RES = os.environ.get("SOLTTS_RES", r"E:\AI\SolTTS\resources")
     spk_path = os.path.join(RES, "shared", "v1_extra", "speaker_encoder.onnx")
-    prm_path = os.path.join(RES, "models_v1", "chenxing", "prompt_encoder.onnx")
+    prm_path = os.path.join(RES, "models_v1", "atri", "prompt_encoder.onnx")
 
     log("== loading models ==")
     so = ort.SessionOptions()
@@ -67,7 +67,7 @@ def main():
                                     "sv_emb": sv_emb[None, :].astype(np.float32)})
         return np.asarray(ge).reshape(-1), np.asarray(ge_adv).reshape(-1)  # [1024], [512]
 
-    av = os.path.join(RES, "avatars", "chenxing", "references")
+    av = os.path.join(RES, "avatars", "atri", "references")
     refs = [f for f in os.listdir(av) if f.endswith(".wav")]
     log("\n== reference audios ==")
     for f in refs:

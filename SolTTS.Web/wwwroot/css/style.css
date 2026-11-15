@@ -40,7 +40,8 @@
   height: 34px;
   flex-shrink: 0;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--mx-primary), var(--mx-accent));
+  background: linear-gradient(145deg, #1b2533, #10151e);
+  border: 1px solid rgba(119, 174, 255, 0.14);
   display: flex;
   align-items: center;
   justify-content: center;

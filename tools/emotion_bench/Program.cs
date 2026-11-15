@@ -32,7 +32,7 @@ internal static class Program
         int? parallelSentences = int.TryParse(GetArg(args, "--psent") ?? "", out var ps) ? ps : null;
         float alpha = float.TryParse(GetArg(args, "--alpha") ?? "0.3",
             NumberStyles.Float, CultureInfo.InvariantCulture, out var al) ? al : 0.3f;
-        string avatarId = GetArg(args, "--avatar") ?? "chenxing";
+        string avatarId = GetArg(args, "--avatar") ?? "atri";
 
         const string singleText = "今天天气真好，我们一起去公园散步吧。";
         const string multiText = "今天天气真好。我们一起去公园散步吧。晚上吃点什么好呢？";

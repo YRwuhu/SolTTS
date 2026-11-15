@@ -127,7 +127,13 @@ namespace SolTTS.CLI
                                 if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) value = args[++i];
                                 else { Console.WriteLine("Error: Missing value for emotion flag."); ShowUsage(); return; }
                             }
-                            _emotionId = value;
+                            if (!EmotionCatalog.TryNormalize(value, out var canonicalEmotion))
+                            {
+                                Console.WriteLine($"Error: unknown emotion '{value}'. Known labels:");
+                                PrintEmotionChoices();
+                                return;
+                            }
+                            _emotionId = EmotionCatalog.IsBaseline(canonicalEmotion) ? null : canonicalEmotion;
                             break;
 
                         case "-a":
@@ -724,20 +730,27 @@ namespace SolTTS.CLI
                     }
                     await Task.CompletedTask;
                 }),
-                ("/emotion", "<name> [alpha] - Set emotion guide (neutral to disable)", async () => {
+                ("/emotion", "<id|中文名> [alpha] - Set emotion guide (calm to disable)", async () => {
                     if (string.IsNullOrEmpty(arg)) {
-                        Console.WriteLine($"Current emotion: {(_emotionId ?? "neutral")}" +
+                        Console.WriteLine($"Current emotion: {(_emotionId ?? EmotionCatalog.Baseline)}" +
                                           (_emotionAlpha.HasValue ? $" (alpha={_emotionAlpha.Value:0.###})" : ""));
-                        Console.WriteLine("Usage: /emotion <neutral|happy|angry|sad|surprise|fearful|playfulness> [alpha]");
+                        Console.WriteLine("Usage: /emotion <id or Chinese name> [alpha]");
+                        PrintEmotionChoices();
                     } else {
                         var ea = arg.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-                        var name = ea[0].ToLowerInvariant();
-                        if (name is "off" or "none" or "-") name = "neutral";
-                        _emotionId = name == "neutral" ? null : name;
+                        var name = ea[0];
+                        if (name is "off" or "none" or "-") name = EmotionCatalog.Baseline;
+                        if (!EmotionCatalog.TryNormalize(name, out var canonical)) {
+                            Console.WriteLine($"Unknown emotion '{name}'. Known labels:");
+                            PrintEmotionChoices();
+                            await Task.CompletedTask;
+                            return;
+                        }
+                        _emotionId = EmotionCatalog.IsBaseline(canonical) ? null : canonical;
                         if (ea.Length > 1 && float.TryParse(ea[1], System.Globalization.NumberStyles.Float,
                                 System.Globalization.CultureInfo.InvariantCulture, out float a))
                             _emotionAlpha = a;
-                        Console.WriteLine($"Emotion guide set to: {name}" +
+                        Console.WriteLine($"Emotion guide set to: {canonical}" +
                                           (_emotionAlpha.HasValue ? $" (alpha={_emotionAlpha.Value:0.###})" : ""));
                     }
                     await Task.CompletedTask;
@@ -833,6 +846,13 @@ namespace SolTTS.CLI
                 }
             }
         }
+        /// <summary>Print the shared 19-label catalog (ids + Chinese names) from EmotionCatalog.</summary>
+        static void PrintEmotionChoices()
+        {
+            var parts = EmotionCatalog.All.Select(e => e.IsBaseline ? $"{e.Id}({e.ZhName})" : $"{e.Id}({e.ZhName})");
+            Console.WriteLine("  " + string.Join(", ", parts));
+        }
+
         static void PrintBanner()
         {
             Console.ForegroundColor = ConsoleColor.Cyan;
@@ -852,7 +872,7 @@ namespace SolTTS.CLI
             Console.WriteLine("  -s, --stream         Enable real-time streaming playback");
             Console.WriteLine("  -p, --priority <0|1|2> G2P priority mode (0=DictFirst, 1=DictOnly, 2=ModelFirst)");
             Console.WriteLine("  -L, --langs <l1[,l2]>  Allowed languages (comma separated, e.g. zh,en)");
-            Console.WriteLine("  -e, --emotion <name>   Emotion guide (neutral/happy/angry/sad/surprise/fearful/playfulness)");
+            Console.WriteLine("  -e, --emotion <name>   Emotion guide (id or Chinese name; calm = no injection)");
             Console.WriteLine("  -a, --emotion-alpha <f> Emotion strength alpha (default: config EmotionAlpha, e.g. 0.3)");
             Console.WriteLine("  --debug              Enable detailed debug logging");
             Console.WriteLine("  -h, --help           Show this help information");
@@ -867,7 +887,7 @@ namespace SolTTS.CLI
             Console.WriteLine("  /output <path>   Change output file or directory");
             Console.WriteLine("  /priority <0|1|2> Change G2P priority mode");
             Console.WriteLine("  /langs <l1[,l2]>   Change allowed languages (comma separated, e.g. zh,en)");
-            Console.WriteLine("  /emotion <name> [a]  Set emotion guide (neutral to disable), optional alpha");
+            Console.WriteLine("  /emotion <name> [a]  Set emotion guide (id or Chinese name; calm disables), optional alpha");
             Console.WriteLine("  /reload          Reload configuration and models");
             Console.WriteLine("  /help            Show this command list");
             Console.WriteLine("  /exit            Quit SolTTS CLI");
