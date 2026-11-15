@@ -18,7 +18,7 @@ Avatars:
   - Id: default
     Name: ATRI-默认
     AudioPath: ATR_b401_060.wav
-    Text: '……そうでした。時間もありませんし、そちらを優先します'
+    Text: 'そうでした。時間もありませんし、そちらを優先します'
     Language: ja                  # Reference audio language (zh/en/ja)
 
 # Global engine setting: false uses SolTTS V1-series models
