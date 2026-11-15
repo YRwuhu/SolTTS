@@ -153,3 +153,13 @@ tools/emotion/*.npy
 .zcode/
 _tmp/
 onnxruntime_profile_*.json
+
+# Local backups and Python caches
+_backup/
+__pycache__/
+*.pyc
+
+# Local test/dev scratch (not part of the project)
+_devrun/
+_publish/
+_tmp*

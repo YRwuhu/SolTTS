@@ -173,27 +173,29 @@ namespace SolTTS.Core.Core
         {
             if (_config == null || _refCache == null || !_refCache.Valid) return;
 
-            float effectiveAlpha = 0f;
             var baseEmb = _refCache.SvEmbBase;
+            var (canonical, tau, error) = ResolveEmotionRequest(emotionId);
+            if (error != null)
+                throw new InvalidOperationException(error);
 
-            if (_emotion != null && _emotion.Loaded && !string.IsNullOrEmpty(emotionId)
-                && !string.Equals(emotionId, EmotionDirectionController.NeutralEmotion, StringComparison.OrdinalIgnoreCase))
+            float effectiveAlpha = 0f;
+            if (canonical != null && tau != null)
             {
-                var tau = _emotion.GetTau(emotionId);
-                if (tau != null && tau.Length == baseEmb.Length)
+                if (tau.Length != baseEmb.Length)
+                    throw new InvalidOperationException(
+                        $"Emotion '{canonical}' has τ dimension {tau.Length} but the speaker embedding is {baseEmb.Length}-dimensional.");
+
+                effectiveAlpha = ResolveAlpha(emotionAlpha);
+                if (effectiveAlpha > 0f)
                 {
-                    effectiveAlpha = emotionAlpha ?? _config.EmotionAlpha;
-                    if (effectiveAlpha > 0f)
-                    {
-                        _svEmb = EmotionDirectionController.Apply(baseEmb, tau, effectiveAlpha);
-                        Console.WriteLine($"[Emotion] Injected {emotionId}: α={effectiveAlpha:0.###} (lightweight recompute)");
-                    }
+                    _svEmb = EmotionDirectionController.Apply(baseEmb, tau, effectiveAlpha);
+                    Console.WriteLine($"[Emotion] Injected {canonical}: α={effectiveAlpha:0.###} (lightweight recompute)");
                 }
             }
 
             if (effectiveAlpha <= 0f)
             {
-                // No emotion: reuse the original embedding to avoid extra allocations
+                // Baseline / α=0: reuse the original embedding, output identical to no-emotion path
                 _svEmb = baseEmb;
             }
 
@@ -201,6 +203,42 @@ namespace SolTTS.Core.Core
             _ge = ge;
             _geAdvanced = geAdvanced;
         }
+
+        /// <summary>
+        /// Validate and resolve a requested emotion. Returns (canonical id or null for baseline, τ, error message).
+        /// An unknown label or a known-but-unusable direction is an error, never a silent neutral fallback.
+        /// </summary>
+        private (string? Id, float[]? Tau, string? Error) ResolveEmotionRequest(string? emotionId)
+        {
+            if (string.IsNullOrWhiteSpace(emotionId))
+                return (null, null, null);
+
+            if (_emotion == null || !_emotion.Loaded)
+                return (null, null,
+                    $"emotion control is not available: no emotion vectors loaded from '{_config?.EffectiveEmotionVectorPath}'");
+
+            return _emotion.Resolve(emotionId);
+        }
+
+        /// <summary>Validate α (finite, non-negative, within the supported ceiling).</summary>
+        private float ResolveAlpha(float? emotionAlpha)
+        {
+            float alpha = emotionAlpha ?? _config?.EmotionAlpha ?? 0.3f;
+            if (!float.IsFinite(alpha))
+                throw new ArgumentOutOfRangeException(nameof(emotionAlpha), "emotion alpha must be a finite number");
+            if (alpha < 0f)
+                throw new ArgumentOutOfRangeException(nameof(emotionAlpha), "emotion alpha must be >= 0");
+            if (alpha > MaxEmotionAlpha)
+                throw new ArgumentOutOfRangeException(nameof(emotionAlpha),
+                    $"emotion alpha {alpha} exceeds the supported maximum {MaxEmotionAlpha}");
+            return alpha;
+        }
+
+        /// <summary>Upper bound for α. Above this the speaker identity degrades severely.</summary>
+        public const float MaxEmotionAlpha = 1.5f;
+
+        /// <summary>Current readiness of all 19 labels, or null when emotion control is disabled.</summary>
+        public IReadOnlyList<EmotionInfo>? GetEmotionCatalog() => _emotion?.Catalog();
 
         private void PrepareReference(string? avatarId, string? referenceId, string? emotionId = null, float? emotionAlpha = null)
         {
@@ -263,32 +301,33 @@ namespace SolTTS.Core.Core
             // Emotion guidance (optional): inject an emotion direction vector into sv_emb space,
             // x_new = x_base + α·||x_base||·τ̂
             // When α=0 or the feature is disabled/unloaded, the original embedding is kept (output bit-identical).
+            // Unknown labels and unusable directions raise here; they never silently degrade to neutral.
             float effectiveAlpha = 0f;
             _svEmb = svEmbBase;
-            if (_emotion != null && _emotion.Loaded && !string.IsNullOrEmpty(emotionId)
-                && !string.Equals(emotionId, EmotionDirectionController.NeutralEmotion, StringComparison.OrdinalIgnoreCase))
+            string? canonicalEmotion = null;
+            if (!string.IsNullOrWhiteSpace(emotionId))
             {
-                var tau = _emotion.GetTau(emotionId);
-                if (tau != null && tau.Length == svEmbBase.Length)
+                var (resolvedId, tau, error) = ResolveEmotionRequest(emotionId);
+                if (error != null)
+                    throw new InvalidOperationException(error);
+
+                if (resolvedId != null && tau != null)
                 {
-                    effectiveAlpha = emotionAlpha ?? _config?.EmotionAlpha ?? 0.3f;
+                    if (tau.Length != svEmbBase.Length)
+                        throw new InvalidOperationException(
+                            $"Emotion '{resolvedId}' has τ dimension {tau.Length} but the speaker embedding is {svEmbBase.Length}-dimensional.");
+
+                    effectiveAlpha = ResolveAlpha(emotionAlpha);
                     if (effectiveAlpha > 0f)
                     {
                         _svEmb = EmotionDirectionController.Apply(svEmbBase, tau, effectiveAlpha);
-                        Console.WriteLine($"[Emotion] Injected {emotionId}: α={effectiveAlpha:0.###}, ||x_base||={Math.Sqrt(svEmbBase.Sum(v => (double)v * v)):0.##}");
+                        canonicalEmotion = resolvedId;
+                        Console.WriteLine($"[Emotion] Injected {resolvedId}: α={effectiveAlpha:0.###}, ||x_base||={Math.Sqrt(svEmbBase.Sum(v => (double)v * v)):0.##}");
                     }
-                }
-                else if (tau != null)
-                {
-                    Console.WriteLine($"[Emotion] Ignoring {emotionId}: τ dimension {tau.Length} does not match sv_emb dimension {svEmbBase.Length}");
-                }
-                else if (_config?.DebugMode == true)
-                {
-                    Console.WriteLine($"[Emotion] τ not found for emotion '{emotionId}', ignoring");
                 }
             }
 
-            if (string.IsNullOrEmpty(emotionId) || effectiveAlpha <= 0f)
+            if (canonicalEmotion == null || effectiveAlpha <= 0f)
             {
                 emotionId = null;
                 effectiveAlpha = 0f;
@@ -561,20 +600,22 @@ namespace SolTTS.Core.Core
                 }
             }
 
-            // Normalize emotion: neutral / disabled / missing τ / α<=0 means no emotion
+            // Normalize emotion: baseline / α<=0 means no injection, but unknown or unusable labels are errors.
             string? effectiveEmotion = null;
             float effectiveAlpha = 0f;
-            if (_emotion != null && _emotion.Loaded && !string.IsNullOrEmpty(emotionId)
-                && !string.Equals(emotionId, EmotionDirectionController.NeutralEmotion, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(emotionId))
             {
-                var tau = _emotion.GetTau(emotionId);
-                if (tau != null)
+                var (resolvedId, tau, error) = ResolveEmotionRequest(emotionId);
+                if (error != null)
+                    throw new InvalidOperationException(error);
+
+                if (resolvedId != null && tau != null)
                 {
-                    float alpha = emotionAlpha ?? _config.EmotionAlpha;
+                    float alpha = ResolveAlpha(emotionAlpha);
                     if (alpha > 0f)
                     {
                         // Dimension matching is validated in PrepareReference (on first call _svEmb is not yet loaded)
-                        effectiveEmotion = emotionId;
+                        effectiveEmotion = resolvedId;
                         effectiveAlpha = alpha;
                     }
                 }

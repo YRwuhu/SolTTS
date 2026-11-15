@@ -12,7 +12,7 @@ Metrics:
 
 Usage:
   python verify_injection.py --tau-dir E:/AI/SolTTS/resources/emotion_vectors \
-      --text "今天天气真好，我们一起去公园散步吧。" --avatars chenxing
+      --text "今天天气真好，我们一起去公园散步吧。" --avatars atri
 """
 import argparse
 import io
@@ -70,7 +70,7 @@ def main():
     ap.add_argument("--tau-dir", default=None)
     ap.add_argument("--out", default=r"E:\AI\SolTTS\_emotion_eval")
     ap.add_argument("--text", default="今天天气真好，我们一起去公园散步吧。")
-    ap.add_argument("--avatars", default="chenxing")
+    ap.add_argument("--avatars", default="atri")
     ap.add_argument("--alphas", default="0,0.05,0.1,0.2,0.3,0.5,0.8,1.0")
     ap.add_argument("--emotions", default="happy,angry,sad,surprise,fearful,playfulness")
     ap.add_argument("--seed", type=int, default=1234)
@@ -124,7 +124,7 @@ def main():
     so_cpu = ort.SessionOptions()
     so_cpu.intra_op_num_threads = max(2, (os.cpu_count() or 4) // 4)
     so_cpu.inter_op_num_threads = 1
-    prm = ort.InferenceSession(os.path.join(args.resources, "models_v1", "chenxing", "prompt_encoder.onnx"),
+    prm = ort.InferenceSession(os.path.join(args.resources, "models_v1", "atri", "prompt_encoder.onnx"),
                                so_cpu, providers=["CPUExecutionProvider"])
 
     ref_wav = None

@@ -34,6 +34,17 @@ namespace SolTTS.Web.Controllers
             if (string.IsNullOrWhiteSpace(request.Text))
                 return BadRequest("Text cannot be empty");
 
+            try
+            {
+                var validation = TtsRequestValidator.ValidateEmotion(
+                    _sdk.Config, _sdk.GetEmotionCatalog(), request.EmotionId, request.EmotionAlpha);
+                request.EmotionId = validation.EmotionId;
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+
             var options = new TtsOptions
             {
                 Speed = request.Speed ?? _sdk.Config.Speed,
@@ -77,6 +88,8 @@ namespace SolTTS.Web.Controllers
         /// <param name="temperature">Sampling temperature (optional)</param>
         /// <param name="topK">Top-K sampling (optional)</param>
         /// <param name="chunkSize">Streaming chunk size (optional)</param>
+        /// <param name="emotionId">Emotion id or Chinese name (optional; "calm"/"neutral" means no injection)</param>
+        /// <param name="emotionAlpha">Emotion strength α (optional)</param>
         [HttpGet("predict-stream")]
         public async Task PredictStream(
             [FromQuery] string text,
@@ -87,12 +100,30 @@ namespace SolTTS.Web.Controllers
             [FromQuery] float? temperature = null,
             [FromQuery] int? topK = null,
             [FromQuery] int? chunkSize = null,
-            [FromQuery] List<string>? languages = null)
+            [FromQuery] List<string>? languages = null,
+            [FromQuery] string? emotionId = null,
+            [FromQuery] float? emotionAlpha = null)
         {
             if (string.IsNullOrWhiteSpace(text))
             {
                 Response.StatusCode = 400;
                 await Response.WriteAsync("text parameter is required");
+                return;
+            }
+
+            // Validate before any audio headers are written: a bad emotion must fail loudly,
+            // not produce a stream that silently ignores the request.
+            try
+            {
+                var validation = TtsRequestValidator.ValidateEmotion(
+                    _sdk.Config, _sdk.GetEmotionCatalog(), emotionId, emotionAlpha);
+                emotionId = validation.EmotionId;
+            }
+            catch (ArgumentException ex)
+            {
+                Response.StatusCode = 400;
+                Response.ContentType = "text/plain; charset=utf-8";
+                await Response.WriteAsync(ex.Message);
                 return;
             }
 
@@ -103,7 +134,9 @@ namespace SolTTS.Web.Controllers
                 Temperature = temperature ?? _sdk.Config.Temperature,
                 TopK = topK ?? _sdk.Config.TopK,
                 StreamingChunkSize = chunkSize ?? _sdk.Config.StreamingChunkSize,
-                Languages = (languages != null && languages.Count > 0) ? languages : null
+                Languages = (languages != null && languages.Count > 0) ? languages : null,
+                EmotionId = emotionId,
+                EmotionAlpha = emotionAlpha
             };
 
             Response.ContentType = "audio/pcm";
@@ -137,6 +170,17 @@ namespace SolTTS.Web.Controllers
         {
             if (string.IsNullOrWhiteSpace(request.Text))
                 return Task.FromResult<IActionResult>(BadRequest(new { error = "Text cannot be empty" }));
+
+            try
+            {
+                var validation = TtsRequestValidator.ValidateEmotion(
+                    _sdk.Config, _sdk.GetEmotionCatalog(), request.EmotionId, request.EmotionAlpha);
+                request.EmotionId = validation.EmotionId;
+            }
+            catch (ArgumentException ex)
+            {
+                return Task.FromResult<IActionResult>(BadRequest(new { error = ex.Message }));
+            }
 
             var sessionId = _sessionManager.CreateSession(
                     request.Text,
@@ -352,6 +396,47 @@ namespace SolTTS.Web.Controllers
                 Device = "CPU", // Hardcoded for now; can be retrieved from the SDK later
                 DefaultAvatarId = _sdk.Config.DefaultAvatarId,
                 Avatars = _sdk.Avatars.Select(a => new { a.Id, a.Name })
+            });
+        }
+
+        /// <summary>
+        /// Read-only catalog of the 19 emotion labels with their current readiness.
+        /// Used by the WebUI to build the emotion selector from a single source of truth.
+        /// </summary>
+        [HttpGet("emotions")]
+        public IActionResult GetEmotions()
+        {
+            var catalog = _sdk.GetEmotionCatalog();
+            var enabled = _sdk.Config.UseEmotionControl;
+
+            return Ok(new
+            {
+                enabled,
+                engine = _sdk.Config.UseEngineV2 ? "V2" : "V1",
+                baseline = EmotionCatalog.Baseline,
+                maxAlpha = TtsRequestValidator.MaxEmotionAlpha,
+                defaultAlpha = _sdk.Config.EmotionAlpha,
+                emotions = EmotionCatalog.All.Select(def =>
+                {
+                    var info = catalog?.FirstOrDefault(e =>
+                        string.Equals(e.Id, def.Id, StringComparison.OrdinalIgnoreCase));
+                    var readiness = def.IsBaseline
+                        ? EmotionReadiness.Baseline
+                        : (info?.Readiness ?? EmotionReadiness.Unavailable);
+                    return new
+                    {
+                        id = def.Id,
+                        zhName = def.ZhName,
+                        enName = def.EnName,
+                        isBaseline = def.IsBaseline,
+                        readiness = readiness.ToString().ToLowerInvariant(),
+                        usable = readiness is EmotionReadiness.Baseline
+                            or EmotionReadiness.Ready or EmotionReadiness.Experimental,
+                        reason = info?.Reason,
+                        sampleCount = info?.SampleCount,
+                        consistency = info?.Consistency,
+                    };
+                })
             });
         }
 

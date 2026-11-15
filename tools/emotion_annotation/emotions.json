@@ -1,0 +1,189 @@
+{
+  "version": "1.0.0",
+  "prompt_version": "atri19-v1",
+  "scheme": "single-label-acoustic",
+  "baseline": "calm",
+  "notes": [
+    "calm is the neutral baseline; it does not get a tau direction vector.",
+    "Exactly one primary label per clip. Low confidence is allowed and routed to review.",
+    "Labels must be judged from acoustic evidence, not from guessed dialogue meaning."
+  ],
+  "emotions": [
+    {
+      "id": "happy",
+      "zh": "高兴",
+      "en": "Happy",
+      "definition": "语调轻快上扬，音色明亮，节奏舒展或带笑意；一般的愉悦、开心。",
+      "confusable_with": ["excited", "lovestruck", "playful"],
+      "boundary": "若唤起度很高、语速快、音量明显抬升、接近欢呼，选 excited；若语气柔软亲近、带倾慕，选 lovestruck；若带捉弄得意的玩心，选 playful。"
+    },
+    {
+      "id": "calm",
+      "zh": "平静",
+      "en": "Calm",
+      "definition": "情绪中性或平稳，语速、音量、音高自然稳定，无明显情绪色彩；这是本语料的基线类。",
+      "confusable_with": ["serious", "confident"],
+      "boundary": "若语调偏冷、克制、带有明确郑重感，选 serious；若语气笃定、有把握、下沉有力，选 confident。"
+    },
+    {
+      "id": "disgust",
+      "zh": "厌恶",
+      "en": "Disgust",
+      "definition": "明显的嫌弃、排斥、反感；常见啧声、叹气式出气、音色变紧或压低、拖长并下坠。",
+      "confusable_with": ["angry", "helpless"],
+      "boundary": "必须有排斥/嫌恶的声音证据；单纯不满或抱怨不要标成厌恶，单纯无力感选 helpless。"
+    },
+    {
+      "id": "shy",
+      "zh": "害羞",
+      "en": "Shy",
+      "definition": "内敛退缩、放不开；音量偏小、气息化、语速放慢或断续、句尾收弱，常带迟疑。",
+      "confusable_with": ["embarrassed", "nervous"],
+      "boundary": "若核心是尴尬羞窘、想掩饰、语气发虚发飘，选 embarrassed；若是面对压力的紧绷，选 nervous。"
+    },
+    {
+      "id": "fearful",
+      "zh": "害怕",
+      "en": "Fearful",
+      "definition": "面对威胁的恐惧；声音发抖、气息急促、音高抬升或突然收紧、音量不稳。",
+      "confusable_with": ["nervous", "worried", "flustered"],
+      "boundary": "紧张多为预期性压力、尚未失控；慌张是节奏已经乱掉；担心是对结果牵挂；恐惧需要有受威胁的强烈生理反应。"
+    },
+    {
+      "id": "angry",
+      "zh": "生气",
+      "en": "Angry",
+      "definition": "愤怒、发火；音量增大、音色变硬、重音加重、语速加快或压低爆发、句尾下砸。",
+      "confusable_with": ["disgust", "serious"],
+      "boundary": "若主要是嫌恶排斥而非发火，选 disgust；若只是严厉郑重、没有发火，选 serious。"
+    },
+    {
+      "id": "serious",
+      "zh": "认真",
+      "en": "Serious",
+      "definition": "郑重、专注、克制；语调平稳偏冷，吐字清楚，无明显起伏，带责任感或告诫感。",
+      "confusable_with": ["calm", "confident"],
+      "boundary": "有明确郑重/告诫/专注意图时选 serious；仅平稳无色彩时选 calm。"
+    },
+    {
+      "id": "nervous",
+      "zh": "紧张",
+      "en": "Nervous",
+      "definition": "预期压力下的紧绷；气息浅、发声发紧、语速不稳、停顿犹疑、句尾收不住。",
+      "confusable_with": ["flustered", "fearful", "worried"],
+      "boundary": "仍能维持基本节奏、只是发紧发虚，选 nervous；节奏与语句已经乱掉、急促重复或抢话，选 flustered。"
+    },
+    {
+      "id": "flustered",
+      "zh": "慌张",
+      "en": "Flustered",
+      "definition": "已经失去从容；语速忽快、抢话、重复、气息乱、音量忽大忽小，语句组织明显失控。",
+      "confusable_with": ["nervous", "excited", "surprised"],
+      "boundary": "必须有节奏失控的证据；仅有紧绷感选 nervous。"
+    },
+    {
+      "id": "confused",
+      "zh": "疑惑",
+      "en": "Confused",
+      "definition": "困惑、不解、拿不准；句尾上扬、停顿增多、语速放慢、语气带试探或迟疑。",
+      "confusable_with": ["surprised", "worried"],
+      "boundary": "惊讶是突发的高唤醒反应；疑惑是持续的拿不准与试探。"
+    },
+    {
+      "id": "excited",
+      "zh": "兴奋",
+      "en": "Excited",
+      "definition": "高唤醒的激动；语速快、音高与音量抬升、节奏跳跃、气息外放，接近欢呼或雀跃。",
+      "confusable_with": ["happy", "flustered"],
+      "boundary": "一般愉悦、情绪明亮但唤醒度不高时选 happy；若慌乱多于雀跃，选 flustered。"
+    },
+    {
+      "id": "helpless",
+      "zh": "无奈",
+      "en": "Helpless",
+      "definition": "接受不利处境却无力改变；长叹气、语速放慢、音高下沉、句尾泄气、声音发松或发虚。",
+      "confusable_with": ["worried", "crying", "disgust"],
+      "boundary": "仍有对结果的牵挂与不安时选 worried；出现哭腔或抽泣时选 crying。"
+    },
+    {
+      "id": "worried",
+      "zh": "担心",
+      "en": "Worried",
+      "definition": "对不利结果的牵挂与不安；语速不稳或偏快、音高上抬、气息浅、句尾带探询或不安。",
+      "confusable_with": ["nervous", "fearful", "helpless"],
+      "boundary": "以牵挂、询问、关切为主时选 worried；以自身受压紧绷为主时选 nervous。"
+    },
+    {
+      "id": "surprised",
+      "zh": "惊讶",
+      "en": "Surprised",
+      "definition": "突发意外反应；起音短促抬高、气声或吸气声、节奏突然中断、音量瞬变。",
+      "confusable_with": ["confused", "excited", "flustered"],
+      "boundary": "持续性不解选 confused；持续高唤醒欢喜选 excited。"
+    },
+    {
+      "id": "crying",
+      "zh": "哭泣",
+      "en": "Crying",
+      "definition": "带哭腔或抽泣的说话；鼻音加重、气息断续、喉部收紧、哽咽、句尾破碎或带吸鼻声。",
+      "confusable_with": ["helpless", "worried"],
+      "boundary": "必须有可听见的哭腔/哽咽/抽泣证据；仅台词悲伤而无哭声，不要标 crying。"
+    },
+    {
+      "id": "lovestruck",
+      "zh": "心动",
+      "en": "Lovestruck",
+      "definition": "亲近、柔软、带倾慕或怦然；音量偏轻、气声多、语速缓、句尾柔化，音色温暖。",
+      "confusable_with": ["shy", "happy", "embarrassed"],
+      "boundary": "核心是亲近倾慕的柔软感选 lovestruck；核心是退缩放不开选 shy；核心是尴尬掩饰选 embarrassed。"
+    },
+    {
+      "id": "embarrassed",
+      "zh": "难为情",
+      "en": "Embarrassed",
+      "definition": "尴尬羞窘、想掩饰；笑声化掩饰、语速忽快忽慢、句尾发散、音量不稳、带自嘲或搪塞。",
+      "confusable_with": ["shy", "nervous", "playful"],
+      "boundary": "内敛安静的退缩选 shy；有掩饰性笑意或无措的搪塞选 embarrassed。"
+    },
+    {
+      "id": "confident",
+      "zh": "自信",
+      "en": "Confident",
+      "definition": "笃定有把握；语速稳定、吐字干净、音量充足、句尾下沉有力，少犹疑。",
+      "confusable_with": ["calm", "serious"],
+      "boundary": "有明显把握与力度选 confident；仅中性平稳选 calm；带告诫郑重选 serious。"
+    },
+    {
+      "id": "playful",
+      "zh": "调皮",
+      "en": "Playful",
+      "definition": "捉弄、打趣、卖乖的玩心；语调跳跃、拖腔、夸张重音、带笑意或促狭感。",
+      "confusable_with": ["happy", "embarrassed"],
+      "boundary": "有明确的捉弄/打趣意图选 playful；只是开心明亮选 happy。"
+    }
+  ],
+  "aliases": {
+    "neutral": "calm",
+    "none": "calm",
+    "off": "calm",
+    "sad": "crying",
+    "sadness": "crying",
+    "fear": "fearful",
+    "surprise": "surprised",
+    "surprised_": "surprised",
+    "playfulness": "playful",
+    "joy": "happy",
+    "disgusted": "disgust",
+    "angry_": "angry",
+    "nervousness": "nervous",
+    "confusion": "confused",
+    "excitement": "excited",
+    "helplessness": "helpless",
+    "worry": "worried",
+    "confident_": "confident",
+    "shyness": "shy",
+    "embarrassment": "embarrassed",
+    "love": "lovestruck",
+    "calmness": "calm"
+  }
+}

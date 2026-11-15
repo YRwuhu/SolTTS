@@ -31,6 +31,16 @@ namespace SolTTS.Core.Core
         public IReadOnlyList<Avatar> Avatars => _config.Avatars;
 
         /// <summary>
+        /// Snapshot of the 19-emotion catalog with current readiness (baseline, ready, experimental, unavailable).
+        /// Returns null when emotion control is disabled in the configuration.
+        /// </summary>
+        public IReadOnlyList<EmotionInfo>? GetEmotionCatalog()
+        {
+            if (!_config.UseEmotionControl) return null;
+            return _pool.GetEmotionCatalog();
+        }
+
+        /// <summary>
         /// Initialize the SDK.
         /// </summary>
         /// <param name="config">Configuration object. When null, attempts to load the default configuration.</param>

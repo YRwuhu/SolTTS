@@ -28,7 +28,7 @@ async Task<float[]> Render(string modelDir)
     // directory under test and keep everything else from the real config.
     string root = Path.Combine(Path.GetTempPath(), "audio_cmp_" + Guid.NewGuid().ToString("N"));
     Directory.CreateDirectory(Path.Combine(root, "models_v1"));
-    Directory.CreateSymbolicLink(Path.Combine(root, "models_v1", "chenxing"), Path.GetFullPath(modelDir));
+    Directory.CreateSymbolicLink(Path.Combine(root, "models_v1", "atri"), Path.GetFullPath(modelDir));
     // Shared assets (G2P, BERT, avatars) come from the real tree.
     string realResources = Path.GetFullPath("resources");
     Directory.CreateSymbolicLink(Path.Combine(root, "shared"), Path.Combine(realResources, "shared"));

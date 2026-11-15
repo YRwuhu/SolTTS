@@ -1,0 +1,1243 @@
+{
+  "generated_at": "2026-11-15T10:54:31+0800",
+  "schema": [
+    "happy",
+    "calm",
+    "disgust",
+    "shy",
+    "fearful",
+    "angry",
+    "serious",
+    "nervous",
+    "flustered",
+    "confused",
+    "excited",
+    "helpless",
+    "worried",
+    "surprised",
+    "crying",
+    "lovestruck",
+    "embarrassed",
+    "confident",
+    "playful"
+  ],
+  "baseline": "calm",
+  "label_counts": {
+    "happy": 306,
+    "calm": 203,
+    "disgust": 21,
+    "shy": 256,
+    "fearful": 13,
+    "angry": 42,
+    "serious": 48,
+    "nervous": 38,
+    "flustered": 44,
+    "confused": 95,
+    "excited": 127,
+    "helpless": 118,
+    "worried": 81,
+    "surprised": 85,
+    "crying": 80,
+    "lovestruck": 142,
+    "embarrassed": 8,
+    "confident": 52,
+    "playful": 162
+  },
+  "embedded_counts": {
+    "happy": 242,
+    "calm": 127,
+    "disgust": 14,
+    "shy": 194,
+    "fearful": 7,
+    "angry": 37,
+    "serious": 38,
+    "nervous": 28,
+    "flustered": 37,
+    "confused": 74,
+    "excited": 96,
+    "helpless": 80,
+    "worried": 57,
+    "surprised": 58,
+    "crying": 70,
+    "lovestruck": 129,
+    "embarrassed": 5,
+    "confident": 42,
+    "playful": 137
+  },
+  "directions": {
+    "happy": {
+      "n_samples": 242,
+      "tau_norm": 24.326936721801758,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.4411207437515259,
+      "coherence_std": 0.26221778988838196,
+      "retained_fraction": 0.4502406120300293,
+      "mean_delta_norm": 54.030967712402344,
+      "std_delta_norm": 9.598291397094727,
+      "status": "ready",
+      "reason": null
+    },
+    "disgust": {
+      "n_samples": 14,
+      "tau_norm": 18.373146057128906,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.30785879492759705,
+      "coherence_std": 0.28825172781944275,
+      "retained_fraction": 0.3481854498386383,
+      "mean_delta_norm": 52.76827621459961,
+      "std_delta_norm": 10.22334098815918,
+      "status": "experimental",
+      "reason": "low sample count"
+    },
+    "shy": {
+      "n_samples": 194,
+      "tau_norm": 25.915864944458008,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.4341844916343689,
+      "coherence_std": 0.3325372636318207,
+      "retained_fraction": 0.45960429310798645,
+      "mean_delta_norm": 56.38734436035156,
+      "std_delta_norm": 11.600167274475098,
+      "status": "ready",
+      "reason": null
+    },
+    "fearful": {
+      "n_samples": 7,
+      "tau_norm": 44.777156829833984,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.6977561712265015,
+      "coherence_std": 0.1614280641078949,
+      "retained_fraction": 0.7240425944328308,
+      "mean_delta_norm": 61.843265533447266,
+      "std_delta_norm": 14.710652351379395,
+      "status": "experimental",
+      "reason": "low sample count"
+    },
+    "angry": {
+      "n_samples": 37,
+      "tau_norm": 28.29090690612793,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.4655975103378296,
+      "coherence_std": 0.33178654313087463,
+      "retained_fraction": 0.4852592945098877,
+      "mean_delta_norm": 58.30059814453125,
+      "std_delta_norm": 11.453245162963867,
+      "status": "ready",
+      "reason": null
+    },
+    "serious": {
+      "n_samples": 38,
+      "tau_norm": 11.363547325134277,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.227773517370224,
+      "coherence_std": 0.2154540717601776,
+      "retained_fraction": 0.22858907282352448,
+      "mean_delta_norm": 49.7116813659668,
+      "std_delta_norm": 7.8550639152526855,
+      "status": "experimental",
+      "reason": "low direction coherence (0.23)"
+    },
+    "nervous": {
+      "n_samples": 28,
+      "tau_norm": 26.85243797302246,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.4725683033466339,
+      "coherence_std": 0.2821495831012726,
+      "retained_fraction": 0.4939942955970764,
+      "mean_delta_norm": 54.3577880859375,
+      "std_delta_norm": 11.986177444458008,
+      "status": "ready",
+      "reason": null
+    },
+    "flustered": {
+      "n_samples": 37,
+      "tau_norm": 39.49528503417969,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.64349764585495,
+      "coherence_std": 0.20201416313648224,
+      "retained_fraction": 0.6542292833328247,
+      "mean_delta_norm": 60.369178771972656,
+      "std_delta_norm": 7.591198921203613,
+      "status": "ready",
+      "reason": null
+    },
+    "confused": {
+      "n_samples": 74,
+      "tau_norm": 18.771026611328125,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.3619976043701172,
+      "coherence_std": 0.25192317366600037,
+      "retained_fraction": 0.36250337958335876,
+      "mean_delta_norm": 51.78165817260742,
+      "std_delta_norm": 8.523371696472168,
+      "status": "ready",
+      "reason": null
+    },
+    "excited": {
+      "n_samples": 96,
+      "tau_norm": 40.62076187133789,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.6541256308555603,
+      "coherence_std": 0.18534047901630402,
+      "retained_fraction": 0.6713459491729736,
+      "mean_delta_norm": 60.50645065307617,
+      "std_delta_norm": 11.219257354736328,
+      "status": "ready",
+      "reason": null
+    },
+    "helpless": {
+      "n_samples": 80,
+      "tau_norm": 18.95943832397461,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.3020341694355011,
+      "coherence_std": 0.3791392147541046,
+      "retained_fraction": 0.34923428297042847,
+      "mean_delta_norm": 54.28859329223633,
+      "std_delta_norm": 12.055500984191895,
+      "status": "experimental",
+      "reason": "low direction coherence (0.30)"
+    },
+    "worried": {
+      "n_samples": 57,
+      "tau_norm": 19.658048629760742,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.38743722438812256,
+      "coherence_std": 0.22141674160957336,
+      "retained_fraction": 0.38559168577194214,
+      "mean_delta_norm": 50.98151779174805,
+      "std_delta_norm": 9.27726936340332,
+      "status": "ready",
+      "reason": null
+    },
+    "surprised": {
+      "n_samples": 58,
+      "tau_norm": 31.125696182250977,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.5267284512519836,
+      "coherence_std": 0.25177133083343506,
+      "retained_fraction": 0.5498487949371338,
+      "mean_delta_norm": 56.60773849487305,
+      "std_delta_norm": 10.338434219360352,
+      "status": "ready",
+      "reason": null
+    },
+    "crying": {
+      "n_samples": 70,
+      "tau_norm": 47.024967193603516,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.6638433337211609,
+      "coherence_std": 0.21778103709220886,
+      "retained_fraction": 0.6953994035720825,
+      "mean_delta_norm": 67.62296295166016,
+      "std_delta_norm": 13.856352806091309,
+      "status": "ready",
+      "reason": null
+    },
+    "lovestruck": {
+      "n_samples": 129,
+      "tau_norm": 21.106359481811523,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.37587398290634155,
+      "coherence_std": 0.3215518593788147,
+      "retained_fraction": 0.39769431948661804,
+      "mean_delta_norm": 53.071815490722656,
+      "std_delta_norm": 10.74513053894043,
+      "status": "ready",
+      "reason": null
+    },
+    "embarrassed": {
+      "n_samples": 5,
+      "tau_norm": 32.196956634521484,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.6435973644256592,
+      "coherence_std": 0.1931530386209488,
+      "retained_fraction": 0.6674767136573792,
+      "mean_delta_norm": 48.23682403564453,
+      "std_delta_norm": 8.759796142578125,
+      "status": "experimental",
+      "reason": "low sample count"
+    },
+    "confident": {
+      "n_samples": 42,
+      "tau_norm": 23.641359329223633,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.4549025893211365,
+      "coherence_std": 0.2787174880504608,
+      "retained_fraction": 0.46052926778793335,
+      "mean_delta_norm": 51.3351936340332,
+      "std_delta_norm": 5.199333667755127,
+      "status": "ready",
+      "reason": null
+    },
+    "playful": {
+      "n_samples": 137,
+      "tau_norm": 25.992782592773438,
+      "baseline_norm": 86.5426025390625,
+      "coherence": 0.46200358867645264,
+      "coherence_std": 0.24103420972824097,
+      "retained_fraction": 0.4749738276004791,
+      "mean_delta_norm": 54.72466278076172,
+      "std_delta_norm": 9.601788520812988,
+      "status": "ready",
+      "reason": null
+    }
+  },
+  "bootstrap": {
+    "happy": {
+      "rounds": 40,
+      "mean_cosine": 0.9937108114361763,
+      "min_cosine": 0.988765299320221,
+      "p05_cosine": 0.9915693521499633
+    },
+    "disgust": {
+      "rounds": 40,
+      "mean_cosine": 0.935012874007225,
+      "min_cosine": 0.8425775170326233,
+      "p05_cosine": 0.8792918056249619
+    },
+    "shy": {
+      "rounds": 40,
+      "mean_cosine": 0.994211345911026,
+      "min_cosine": 0.9854574203491211,
+      "p05_cosine": 0.9912158042192459
+    },
+    "fearful": {
+      "rounds": 40,
+      "mean_cosine": 0.9722640112042427,
+      "min_cosine": 0.9431453943252563,
+      "p05_cosine": 0.9544241756200791
+    },
+    "angry": {
+      "rounds": 40,
+      "mean_cosine": 0.985887598991394,
+      "min_cosine": 0.9611570835113525,
+      "p05_cosine": 0.9795681834220886
+    },
+    "serious": {
+      "rounds": 40,
+      "mean_cosine": 0.9212386831641197,
+      "min_cosine": 0.84475177526474,
+      "p05_cosine": 0.8577999651432038
+    },
+    "nervous": {
+      "rounds": 40,
+      "mean_cosine": 0.9813895910978317,
+      "min_cosine": 0.9636399149894714,
+      "p05_cosine": 0.9701684534549713
+    },
+    "flustered": {
+      "rounds": 40,
+      "mean_cosine": 0.9935399621725083,
+      "min_cosine": 0.9844354391098022,
+      "p05_cosine": 0.9876117199659348
+    },
+    "confused": {
+      "rounds": 40,
+      "mean_cosine": 0.9802219972014428,
+      "min_cosine": 0.9576398134231567,
+      "p05_cosine": 0.9653989553451539
+    },
+    "excited": {
+      "rounds": 40,
+      "mean_cosine": 0.9969483211636543,
+      "min_cosine": 0.9948957562446594,
+      "p05_cosine": 0.9955188363790513
+    },
+    "helpless": {
+      "rounds": 40,
+      "mean_cosine": 0.9831806898117066,
+      "min_cosine": 0.9659239053726196,
+      "p05_cosine": 0.9741437435150146
+    },
+    "worried": {
+      "rounds": 40,
+      "mean_cosine": 0.9801507115364074,
+      "min_cosine": 0.9639398455619812,
+      "p05_cosine": 0.971335592865944
+    },
+    "surprised": {
+      "rounds": 40,
+      "mean_cosine": 0.9928176566958428,
+      "min_cosine": 0.9875186681747437,
+      "p05_cosine": 0.9886364191770554
+    },
+    "crying": {
+      "rounds": 40,
+      "mean_cosine": 0.9970227539539337,
+      "min_cosine": 0.9943303465843201,
+      "p05_cosine": 0.9949829757213593
+    },
+    "lovestruck": {
+      "rounds": 40,
+      "mean_cosine": 0.990347082912922,
+      "min_cosine": 0.9857091307640076,
+      "p05_cosine": 0.986979267001152
+    },
+    "embarrassed": {
+      "rounds": 40,
+      "mean_cosine": 0.9660895243287086,
+      "min_cosine": 0.9482418298721313,
+      "p05_cosine": 0.950550588965416
+    },
+    "confident": {
+      "rounds": 40,
+      "mean_cosine": 0.9841225743293762,
+      "min_cosine": 0.9771121740341187,
+      "p05_cosine": 0.9784419447183609
+    },
+    "playful": {
+      "rounds": 40,
+      "mean_cosine": 0.9933578550815583,
+      "min_cosine": 0.9894895553588867,
+      "p05_cosine": 0.9901649206876755
+    }
+  },
+  "holdout": {
+    "happy": {
+      "holdout_samples": 32,
+      "cosine_to_fit": 0.9223045706748962
+    },
+    "disgust": {
+      "holdout_samples": 0,
+      "cosine_to_fit": null
+    },
+    "shy": {
+      "holdout_samples": 32,
+      "cosine_to_fit": 0.9081917405128479
+    },
+    "fearful": {
+      "holdout_samples": 0,
+      "cosine_to_fit": null
+    },
+    "angry": {
+      "holdout_samples": 0,
+      "cosine_to_fit": null
+    },
+    "serious": {
+      "holdout_samples": 8,
+      "cosine_to_fit": 0.3530755639076233
+    },
+    "nervous": {
+      "holdout_samples": 5,
+      "cosine_to_fit": 0.7274968028068542
+    },
+    "flustered": {
+      "holdout_samples": 7,
+      "cosine_to_fit": 0.8712749481201172
+    },
+    "confused": {
+      "holdout_samples": 8,
+      "cosine_to_fit": 0.5867013931274414
+    },
+    "excited": {
+      "holdout_samples": 18,
+      "cosine_to_fit": 0.9431048631668091
+    },
+    "helpless": {
+      "holdout_samples": 25,
+      "cosine_to_fit": 0.7685829401016235
+    },
+    "worried": {
+      "holdout_samples": 18,
+      "cosine_to_fit": 0.7509458065032959
+    },
+    "surprised": {
+      "holdout_samples": 12,
+      "cosine_to_fit": 0.9441087245941162
+    },
+    "crying": {
+      "holdout_samples": 9,
+      "cosine_to_fit": 0.9059714078903198
+    },
+    "lovestruck": {
+      "holdout_samples": 10,
+      "cosine_to_fit": 0.6138259768486023
+    },
+    "embarrassed": {
+      "holdout_samples": 0,
+      "cosine_to_fit": null
+    },
+    "confident": {
+      "holdout_samples": 7,
+      "cosine_to_fit": 0.7977548241615295
+    },
+    "playful": {
+      "holdout_samples": 23,
+      "cosine_to_fit": 0.868048369884491
+    }
+  },
+  "similar_pairs": [
+    {
+      "a": "flustered",
+      "b": "excited",
+      "cosine": 0.973
+    },
+    {
+      "a": "happy",
+      "b": "playful",
+      "cosine": 0.9565
+    },
+    {
+      "a": "shy",
+      "b": "lovestruck",
+      "cosine": 0.9403
+    },
+    {
+      "a": "happy",
+      "b": "excited",
+      "cosine": 0.939
+    },
+    {
+      "a": "excited",
+      "b": "playful",
+      "cosine": 0.9359
+    },
+    {
+      "a": "flustered",
+      "b": "playful",
+      "cosine": 0.9312
+    },
+    {
+      "a": "fearful",
+      "b": "crying",
+      "cosine": 0.924
+    },
+    {
+      "a": "shy",
+      "b": "surprised",
+      "cosine": 0.9188
+    },
+    {
+      "a": "shy",
+      "b": "nervous",
+      "cosine": 0.9181
+    },
+    {
+      "a": "shy",
+      "b": "helpless",
+      "cosine": 0.9176
+    },
+    {
+      "a": "happy",
+      "b": "flustered",
+      "cosine": 0.9175
+    },
+    {
+      "a": "shy",
+      "b": "crying",
+      "cosine": 0.9129
+    },
+    {
+      "a": "surprised",
+      "b": "crying",
+      "cosine": 0.9059
+    },
+    {
+      "a": "nervous",
+      "b": "surprised",
+      "cosine": 0.9024
+    },
+    {
+      "a": "fearful",
+      "b": "surprised",
+      "cosine": 0.8856
+    },
+    {
+      "a": "nervous",
+      "b": "crying",
+      "cosine": 0.8816
+    },
+    {
+      "a": "fearful",
+      "b": "excited",
+      "cosine": 0.881
+    },
+    {
+      "a": "nervous",
+      "b": "helpless",
+      "cosine": 0.8807
+    },
+    {
+      "a": "angry",
+      "b": "confident",
+      "cosine": 0.8804
+    },
+    {
+      "a": "angry",
+      "b": "excited",
+      "cosine": 0.8781
+    },
+    {
+      "a": "fearful",
+      "b": "flustered",
+      "cosine": 0.8767
+    },
+    {
+      "a": "nervous",
+      "b": "lovestruck",
+      "cosine": 0.8764
+    },
+    {
+      "a": "helpless",
+      "b": "crying",
+      "cosine": 0.8691
+    },
+    {
+      "a": "confident",
+      "b": "playful",
+      "cosine": 0.8683
+    },
+    {
+      "a": "helpless",
+      "b": "lovestruck",
+      "cosine": 0.8634
+    },
+    {
+      "a": "happy",
+      "b": "confident",
+      "cosine": 0.8619
+    },
+    {
+      "a": "angry",
+      "b": "playful",
+      "cosine": 0.8599
+    },
+    {
+      "a": "flustered",
+      "b": "surprised",
+      "cosine": 0.8575
+    },
+    {
+      "a": "angry",
+      "b": "flustered",
+      "cosine": 0.8574
+    },
+    {
+      "a": "surprised",
+      "b": "lovestruck",
+      "cosine": 0.8496
+    },
+    {
+      "a": "excited",
+      "b": "confident",
+      "cosine": 0.8465
+    },
+    {
+      "a": "surprised",
+      "b": "embarrassed",
+      "cosine": 0.8371
+    },
+    {
+      "a": "crying",
+      "b": "lovestruck",
+      "cosine": 0.8357
+    },
+    {
+      "a": "excited",
+      "b": "surprised",
+      "cosine": 0.8313
+    },
+    {
+      "a": "shy",
+      "b": "fearful",
+      "cosine": 0.8294
+    },
+    {
+      "a": "fearful",
+      "b": "nervous",
+      "cosine": 0.8284
+    },
+    {
+      "a": "happy",
+      "b": "surprised",
+      "cosine": 0.8276
+    },
+    {
+      "a": "flustered",
+      "b": "crying",
+      "cosine": 0.8274
+    },
+    {
+      "a": "confused",
+      "b": "surprised",
+      "cosine": 0.8241
+    },
+    {
+      "a": "helpless",
+      "b": "surprised",
+      "cosine": 0.8226
+    },
+    {
+      "a": "flustered",
+      "b": "confident",
+      "cosine": 0.82
+    },
+    {
+      "a": "happy",
+      "b": "angry",
+      "cosine": 0.818
+    },
+    {
+      "a": "surprised",
+      "b": "playful",
+      "cosine": 0.8116
+    },
+    {
+      "a": "happy",
+      "b": "fearful",
+      "cosine": 0.811
+    },
+    {
+      "a": "excited",
+      "b": "crying",
+      "cosine": 0.8093
+    },
+    {
+      "a": "fearful",
+      "b": "playful",
+      "cosine": 0.8026
+    },
+    {
+      "a": "flustered",
+      "b": "embarrassed",
+      "cosine": 0.802
+    },
+    {
+      "a": "shy",
+      "b": "embarrassed",
+      "cosine": 0.7996
+    },
+    {
+      "a": "fearful",
+      "b": "embarrassed",
+      "cosine": 0.7915
+    },
+    {
+      "a": "crying",
+      "b": "embarrassed",
+      "cosine": 0.7839
+    },
+    {
+      "a": "nervous",
+      "b": "embarrassed",
+      "cosine": 0.7831
+    },
+    {
+      "a": "fearful",
+      "b": "lovestruck",
+      "cosine": 0.778
+    },
+    {
+      "a": "disgust",
+      "b": "fearful",
+      "cosine": 0.7738
+    },
+    {
+      "a": "disgust",
+      "b": "surprised",
+      "cosine": 0.7735
+    },
+    {
+      "a": "shy",
+      "b": "confused",
+      "cosine": 0.7643
+    },
+    {
+      "a": "excited",
+      "b": "embarrassed",
+      "cosine": 0.7636
+    },
+    {
+      "a": "nervous",
+      "b": "flustered",
+      "cosine": 0.7572
+    },
+    {
+      "a": "fearful",
+      "b": "helpless",
+      "cosine": 0.7561
+    },
+    {
+      "a": "happy",
+      "b": "embarrassed",
+      "cosine": 0.7556
+    },
+    {
+      "a": "disgust",
+      "b": "crying",
+      "cosine": 0.7524
+    },
+    {
+      "a": "happy",
+      "b": "worried",
+      "cosine": 0.7499
+    },
+    {
+      "a": "disgust",
+      "b": "flustered",
+      "cosine": 0.7459
+    },
+    {
+      "a": "happy",
+      "b": "crying",
+      "cosine": 0.7355
+    },
+    {
+      "a": "crying",
+      "b": "playful",
+      "cosine": 0.7351
+    },
+    {
+      "a": "embarrassed",
+      "b": "playful",
+      "cosine": 0.7278
+    },
+    {
+      "a": "nervous",
+      "b": "excited",
+      "cosine": 0.7275
+    },
+    {
+      "a": "lovestruck",
+      "b": "embarrassed",
+      "cosine": 0.7243
+    },
+    {
+      "a": "shy",
+      "b": "flustered",
+      "cosine": 0.7239
+    },
+    {
+      "a": "disgust",
+      "b": "excited",
+      "cosine": 0.7233
+    },
+    {
+      "a": "disgust",
+      "b": "embarrassed",
+      "cosine": 0.7218
+    },
+    {
+      "a": "confused",
+      "b": "embarrassed",
+      "cosine": 0.7217
+    },
+    {
+      "a": "disgust",
+      "b": "shy",
+      "cosine": 0.7212
+    },
+    {
+      "a": "nervous",
+      "b": "confused",
+      "cosine": 0.7173
+    },
+    {
+      "a": "fearful",
+      "b": "angry",
+      "cosine": 0.7156
+    },
+    {
+      "a": "happy",
+      "b": "lovestruck",
+      "cosine": 0.713
+    },
+    {
+      "a": "happy",
+      "b": "shy",
+      "cosine": 0.7129
+    },
+    {
+      "a": "confused",
+      "b": "playful",
+      "cosine": 0.7105
+    },
+    {
+      "a": "happy",
+      "b": "nervous",
+      "cosine": 0.7064
+    },
+    {
+      "a": "happy",
+      "b": "confused",
+      "cosine": 0.7017
+    },
+    {
+      "a": "helpless",
+      "b": "embarrassed",
+      "cosine": 0.6988
+    },
+    {
+      "a": "flustered",
+      "b": "confused",
+      "cosine": 0.6973
+    },
+    {
+      "a": "worried",
+      "b": "playful",
+      "cosine": 0.697
+    },
+    {
+      "a": "disgust",
+      "b": "confused",
+      "cosine": 0.6962
+    },
+    {
+      "a": "disgust",
+      "b": "helpless",
+      "cosine": 0.6926
+    },
+    {
+      "a": "shy",
+      "b": "excited",
+      "cosine": 0.6919
+    },
+    {
+      "a": "flustered",
+      "b": "worried",
+      "cosine": 0.6863
+    },
+    {
+      "a": "nervous",
+      "b": "playful",
+      "cosine": 0.6853
+    },
+    {
+      "a": "disgust",
+      "b": "nervous",
+      "cosine": 0.6838
+    },
+    {
+      "a": "disgust",
+      "b": "playful",
+      "cosine": 0.6824
+    },
+    {
+      "a": "shy",
+      "b": "playful",
+      "cosine": 0.6796
+    },
+    {
+      "a": "confused",
+      "b": "worried",
+      "cosine": 0.6779
+    },
+    {
+      "a": "happy",
+      "b": "disgust",
+      "cosine": 0.6772
+    },
+    {
+      "a": "confused",
+      "b": "crying",
+      "cosine": 0.6655
+    },
+    {
+      "a": "confused",
+      "b": "helpless",
+      "cosine": 0.6606
+    },
+    {
+      "a": "confused",
+      "b": "lovestruck",
+      "cosine": 0.6604
+    },
+    {
+      "a": "fearful",
+      "b": "confused",
+      "cosine": 0.6587
+    },
+    {
+      "a": "excited",
+      "b": "worried",
+      "cosine": 0.657
+    },
+    {
+      "a": "excited",
+      "b": "lovestruck",
+      "cosine": 0.651
+    },
+    {
+      "a": "disgust",
+      "b": "angry",
+      "cosine": 0.6507
+    },
+    {
+      "a": "flustered",
+      "b": "lovestruck",
+      "cosine": 0.649
+    },
+    {
+      "a": "fearful",
+      "b": "confident",
+      "cosine": 0.6446
+    },
+    {
+      "a": "disgust",
+      "b": "lovestruck",
+      "cosine": 0.6445
+    },
+    {
+      "a": "surprised",
+      "b": "confident",
+      "cosine": 0.6411
+    },
+    {
+      "a": "confused",
+      "b": "excited",
+      "cosine": 0.6382
+    },
+    {
+      "a": "lovestruck",
+      "b": "playful",
+      "cosine": 0.637
+    },
+    {
+      "a": "angry",
+      "b": "surprised",
+      "cosine": 0.6354
+    },
+    {
+      "a": "embarrassed",
+      "b": "confident",
+      "cosine": 0.6332
+    },
+    {
+      "a": "worried",
+      "b": "surprised",
+      "cosine": 0.6274
+    },
+    {
+      "a": "worried",
+      "b": "confident",
+      "cosine": 0.6155
+    },
+    {
+      "a": "serious",
+      "b": "confident",
+      "cosine": 0.6141
+    },
+    {
+      "a": "worried",
+      "b": "embarrassed",
+      "cosine": 0.6113
+    },
+    {
+      "a": "angry",
+      "b": "embarrassed",
+      "cosine": 0.6056
+    },
+    {
+      "a": "nervous",
+      "b": "worried",
+      "cosine": 0.6034
+    },
+    {
+      "a": "angry",
+      "b": "crying",
+      "cosine": 0.5982
+    },
+    {
+      "a": "disgust",
+      "b": "confident",
+      "cosine": 0.5955
+    },
+    {
+      "a": "flustered",
+      "b": "helpless",
+      "cosine": 0.5923
+    },
+    {
+      "a": "excited",
+      "b": "helpless",
+      "cosine": 0.5558
+    },
+    {
+      "a": "confused",
+      "b": "confident",
+      "cosine": 0.5557
+    },
+    {
+      "a": "worried",
+      "b": "lovestruck",
+      "cosine": 0.5474
+    },
+    {
+      "a": "angry",
+      "b": "serious",
+      "cosine": 0.5471
+    },
+    {
+      "a": "shy",
+      "b": "worried",
+      "cosine": 0.5445
+    },
+    {
+      "a": "fearful",
+      "b": "worried",
+      "cosine": 0.5207
+    },
+    {
+      "a": "happy",
+      "b": "helpless",
+      "cosine": 0.5197
+    },
+    {
+      "a": "angry",
+      "b": "confused",
+      "cosine": 0.5183
+    },
+    {
+      "a": "angry",
+      "b": "worried",
+      "cosine": 0.5085
+    },
+    {
+      "a": "crying",
+      "b": "confident",
+      "cosine": 0.5049
+    },
+    {
+      "a": "helpless",
+      "b": "playful",
+      "cosine": 0.4987
+    },
+    {
+      "a": "serious",
+      "b": "worried",
+      "cosine": 0.4933
+    },
+    {
+      "a": "nervous",
+      "b": "confident",
+      "cosine": 0.4931
+    },
+    {
+      "a": "angry",
+      "b": "nervous",
+      "cosine": 0.4918
+    },
+    {
+      "a": "serious",
+      "b": "playful",
+      "cosine": 0.472
+    },
+    {
+      "a": "shy",
+      "b": "angry",
+      "cosine": 0.462
+    },
+    {
+      "a": "worried",
+      "b": "crying",
+      "cosine": 0.4526
+    },
+    {
+      "a": "happy",
+      "b": "serious",
+      "cosine": 0.4474
+    },
+    {
+      "a": "shy",
+      "b": "confident",
+      "cosine": 0.4454
+    },
+    {
+      "a": "disgust",
+      "b": "worried",
+      "cosine": 0.4341
+    },
+    {
+      "a": "lovestruck",
+      "b": "confident",
+      "cosine": 0.4244
+    },
+    {
+      "a": "angry",
+      "b": "lovestruck",
+      "cosine": 0.4199
+    },
+    {
+      "a": "serious",
+      "b": "excited",
+      "cosine": 0.4181
+    },
+    {
+      "a": "serious",
+      "b": "flustered",
+      "cosine": 0.4015
+    },
+    {
+      "a": "helpless",
+      "b": "worried",
+      "cosine": 0.3588
+    },
+    {
+      "a": "angry",
+      "b": "helpless",
+      "cosine": 0.3508
+    },
+    {
+      "a": "helpless",
+      "b": "confident",
+      "cosine": 0.2932
+    },
+    {
+      "a": "disgust",
+      "b": "serious",
+      "cosine": 0.244
+    },
+    {
+      "a": "fearful",
+      "b": "serious",
+      "cosine": 0.2182
+    },
+    {
+      "a": "serious",
+      "b": "confused",
+      "cosine": 0.2171
+    },
+    {
+      "a": "serious",
+      "b": "embarrassed",
+      "cosine": 0.1987
+    },
+    {
+      "a": "serious",
+      "b": "surprised",
+      "cosine": 0.1944
+    },
+    {
+      "a": "serious",
+      "b": "nervous",
+      "cosine": 0.1761
+    },
+    {
+      "a": "serious",
+      "b": "crying",
+      "cosine": 0.1038
+    },
+    {
+      "a": "serious",
+      "b": "lovestruck",
+      "cosine": 0.101
+    },
+    {
+      "a": "shy",
+      "b": "serious",
+      "cosine": 0.082
+    },
+    {
+      "a": "serious",
+      "b": "helpless",
+      "cosine": -0.0058
+    }
+  ],
+  "excluded_train": {
+    "too_short": 152
+  },
+  "excluded_val": {
+    "too_short": 26
+  },
+  "missing_baseline": false
+}

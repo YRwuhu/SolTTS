@@ -18,6 +18,8 @@ const Playground = {
             document.getElementById('pg-speed-val').textContent = e.target.value;
         });
 
+        this.loadEmotions();
+
         const emoAlpha = document.getElementById('pg-emotion-alpha');
         if (emoAlpha) {
             emoAlpha.addEventListener('input', (e) => {
@@ -93,7 +95,7 @@ const Playground = {
             languages: selectedLangs.length > 0 ? selectedLangs : null
         };
 
-        // Emotion prompting (supported by the V1 engine only; the backend silently ignores it on V2)
+        // Emotion prompting (V1 only; V2 rejects an explicit emotion instead of ignoring it)
         const emotionId = document.getElementById('pg-emotion')?.value || null;
         if (emotionId) {
             params.emotionId = emotionId;
@@ -106,6 +108,91 @@ const Playground = {
             params.topK = parseInt(document.getElementById('pg-topk').value);
         }
         return params;
+    },
+
+    /** Surface the backend's own error text (validation messages) instead of a generic failure. */
+    async readError(resp, fallback) {
+        try {
+            const text = (await resp.text()).trim();
+            if (!text) return fallback;
+            try {
+                const obj = JSON.parse(text);
+                return obj.error || obj.message || text;
+            } catch { return text; }
+        } catch { return fallback; }
+    },
+
+    /**
+     * Build the emotion selector from /api/tts/emotions so the UI always reflects the vectors
+     * that are actually loaded. Unusable labels stay visible but disabled, with the reason shown.
+     */
+    async loadEmotions() {
+        const select = document.getElementById('pg-emotion');
+        if (!select) return;
+        try {
+            const resp = await fetch('/api/tts/emotions');
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+
+            select.innerHTML = '';
+            if (!data.enabled) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = t('Emotion control is disabled');
+                select.appendChild(opt);
+                select.disabled = true;
+                this.showEmotionNote(t('Emotion control is disabled in the configuration.'));
+                return;
+            }
+
+            const baseline = (data.emotions || []).find(e => e.isBaseline);
+            const ordered = [baseline, ...(data.emotions || []).filter(e => !e.isBaseline)]
+                .filter(Boolean);
+
+            for (const e of ordered) {
+                const opt = document.createElement('option');
+                // The baseline is sent as an empty value, which the API treats as "no injection".
+                opt.value = e.isBaseline ? '' : e.id;
+                let label = `${e.zhName} (${e.enName})`;
+                if (!e.isBaseline) {
+                    if (e.readiness === 'unavailable') label += t(' — unavailable');
+                    else if (e.readiness === 'experimental') label += t(' — experimental');
+                }
+                opt.textContent = label;
+                opt.disabled = !e.usable;
+                opt.dataset.readiness = e.readiness;
+                opt.dataset.reason = e.reason || '';
+                select.appendChild(opt);
+            }
+            select.value = '';
+
+            if (data.defaultAlpha) {
+                const slider = document.getElementById('pg-emotion-alpha');
+                if (slider) {
+                    slider.value = Math.min(parseFloat(slider.max), data.defaultAlpha);
+                    document.getElementById('pg-emotion-alpha-val').textContent =
+                        parseFloat(slider.value).toFixed(2);
+                }
+            }
+
+            const unavailable = ordered.filter(e => !e.isBaseline && e.readiness === 'unavailable');
+            if (unavailable.length) {
+                this.showEmotionNote(
+                    t('{count} emotion(s) have no usable direction vector and are disabled.',
+                        { count: unavailable.length }));
+            }
+        } catch (err) {
+            select.innerHTML = `<option value="">${t('Failed to load emotions')}</option>`;
+            select.disabled = true;
+            this.showEmotionNote(t('Failed to load emotions: {message}', { message: err.message }));
+        }
+    },
+
+    showEmotionNote(text) {
+        const note = document.getElementById('pg-emotion-note');
+        if (!note) return;
+        note.textContent = text;
+        note.style.display = text ? 'block' : 'none';
     },
 
     async playStandard() {
@@ -125,7 +212,7 @@ const Playground = {
                 body: JSON.stringify(params)
             });
 
-            if (!resp.ok) throw new Error(t('Synthesis failed'));
+            if (!resp.ok) throw new Error(await this.readError(resp, t('Synthesis failed')));
 
             this.updateMetrics(resp, performance.now() - startTime);
 
@@ -167,7 +254,7 @@ const Playground = {
 
             const startTime = performance.now();
             const response = await fetch('/api/tts/predict-stream?' + query.toString());
-            if (!response.ok) throw new Error(t('Streaming request failed'));
+            if (!response.ok) throw new Error(await this.readError(response, t('Streaming request failed')));
 
             // Read the actual sample rate from the response headers to avoid pitch artifacts from hardcoding
             const sampleRate = parseInt(response.headers.get('X-Audio-Sample-Rate')) || 32000;
