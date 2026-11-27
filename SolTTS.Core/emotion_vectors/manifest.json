@@ -3,7 +3,7 @@
   "version": 2,
   "dim": 20480,
   "source_dataset": "ATRI (local corpus, single speaker, Japanese)",
-  "method": "single-speaker baseline difference: tau_e = mean_i(x_e^i) - mean_j(x_calm^j)",
+  "method": "single-speaker baseline difference: tau_e = mean_i(x_e^i) - mean_j(x_calm^j); pc1_attenuation(beta=0.70)",
   "baseline": "calm",
   "schema": [
     "happy",
@@ -247,5 +247,7 @@
       "holdout_cosine": 0.868048369884491,
       "bootstrap_mean_cosine": 0.9933578550815583
     }
-  }
+  },
+  "pc1_beta": 0.7,
+  "pc1_energy_ratio": 0.7561
 }

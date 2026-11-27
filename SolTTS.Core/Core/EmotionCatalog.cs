@@ -93,6 +93,117 @@ namespace SolTTS.Core.Core
             return id;
         }
 
+        /// <summary>
+        /// Parse an emotion expression that may be either a single label ("happy", "高兴")
+        /// or a weighted blend ("happy+shy", "happy:0.6,shy:0.4", "高兴:0.7,害羞:0.3").
+        /// Returns false with an error message if any term is unknown or has an invalid weight.
+        /// </summary>
+        public static bool TryParseBlend(
+            string? value,
+            out List<(string Id, float Weight)> components,
+            out string canonicalExpr,
+            out string? error)
+        {
+            components = new List<(string Id, float Weight)>();
+            canonicalExpr = string.Empty;
+            error = null;
+
+            if (string.IsNullOrWhiteSpace(value))
+                return true;
+
+            var trimmed = value.Trim();
+            // Fast path: single label (no blend separators)
+            if (trimmed.IndexOfAny(new[] { '+', ',', ':' }) < 0)
+            {
+                if (!TryNormalize(trimmed, out var singleId))
+                {
+                    error = $"unknown emotion '{value}'";
+                    return false;
+                }
+                if (!IsBaseline(singleId))
+                {
+                    components.Add((singleId, 1f));
+                    canonicalExpr = singleId;
+                }
+                return true;
+            }
+
+            var tokens = trimmed.Split(new[] { '+', ',' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length == 0)
+            {
+                error = $"unknown emotion '{value}'";
+                return false;
+            }
+
+            var merged = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+            var order = new List<string>();
+            foreach (var tok in tokens)
+            {
+                string labelPart = tok;
+                float weight = 1f;
+                int colon = tok.IndexOf(':');
+                if (colon >= 0)
+                {
+                    labelPart = tok[..colon].Trim();
+                    var wStr = tok[(colon + 1)..].Trim();
+                    if (!float.TryParse(wStr, System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out weight)
+                        || !float.IsFinite(weight) || weight <= 0f)
+                    {
+                        error = $"invalid weight '{wStr}' in emotion blend '{value}' (must be > 0)";
+                        return false;
+                    }
+                }
+
+                if (!TryNormalize(labelPart, out var id))
+                {
+                    error = $"unknown emotion '{labelPart}' in '{value}'";
+                    return false;
+                }
+
+                if (IsBaseline(id))
+                    continue; // Baseline contributes zero direction vector
+
+                if (merged.ContainsKey(id))
+                    merged[id] += weight;
+                else
+                {
+                    merged[id] = weight;
+                    order.Add(id);
+                }
+            }
+
+            if (order.Count == 0)
+            {
+                // All terms were baseline (e.g. "calm+neutral")
+                return true;
+            }
+
+            foreach (var id in order)
+                components.Add((id, merged[id]));
+
+            canonicalExpr = components.Count == 1
+                ? components[0].Id
+                : string.Join("+", components.Select(c =>
+                    Math.Abs(c.Weight - 1f) < 1e-4f
+                        ? c.Id
+                        : $"{c.Id}:{c.Weight.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}"));
+            return true;
+        }
+
+        /// <summary>
+        /// Recommended speaking-rate multiplier for an emotion, compensating for the fact that
+        /// V1 T2S does not receive speaker embedding directly.
+        /// </summary>
+        public static float GetRecommendedSpeedFactor(string canonicalId) => canonicalId.ToLowerInvariant() switch
+        {
+            "excited" or "flustered" => 1.06f,
+            "happy" or "playful" or "angry" => 1.03f,
+            "crying" or "helpless" or "worried" or "fearful" => 0.95f,
+            "shy" or "embarrassed" or "nervous" => 0.97f,
+            _ => 1.00f,
+        };
+
         private static Dictionary<string, string> BuildAliases()
         {
             var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

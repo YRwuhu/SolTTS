@@ -36,14 +36,14 @@ namespace SolTTS.Web.Services
             if (string.IsNullOrWhiteSpace(emotionId))
                 return new EmotionValidation(null);
 
-            if (!EmotionCatalog.TryNormalize(emotionId, out var canonical))
+            if (!EmotionCatalog.TryParseBlend(emotionId, out var components, out var canonicalExpr, out var parseErr))
             {
                 throw new ArgumentException(
-                    $"Unknown emotion '{emotionId}'. Supported ids: " +
+                    $"{parseErr ?? $"Unknown emotion '{emotionId}'"}. Supported ids: " +
                     string.Join(", ", EmotionCatalog.All.Select(e => $"{e.Id}({e.ZhName})")));
             }
 
-            if (EmotionCatalog.IsBaseline(canonical))
+            if (components.Count == 0)
                 return new EmotionValidation(null);
 
             if (catalog == null)
@@ -55,18 +55,21 @@ namespace SolTTS.Web.Services
                 throw new ArgumentException(
                     "Emotion control is disabled (UseEmotionControl=false); enable it or omit emotionId.");
 
-            var info = catalog.FirstOrDefault(e =>
-                string.Equals(e.Id, canonical, StringComparison.OrdinalIgnoreCase));
-
-            if (info == null || info.Readiness == EmotionReadiness.Unavailable)
+            foreach (var (compId, _) in components)
             {
-                var reason = info?.Reason;
-                throw new ArgumentException(
-                    $"Emotion '{canonical}' ({info?.ZhName}) is not usable: " +
-                    (string.IsNullOrWhiteSpace(reason) ? "no direction vector is loaded" : reason));
+                var info = catalog.FirstOrDefault(e =>
+                    string.Equals(e.Id, compId, StringComparison.OrdinalIgnoreCase));
+
+                if (info == null || info.Readiness == EmotionReadiness.Unavailable)
+                {
+                    var reason = info?.Reason;
+                    throw new ArgumentException(
+                        $"Emotion '{compId}' ({info?.ZhName}) is not usable: " +
+                        (string.IsNullOrEmpty(reason) ? "no direction vector is loaded" : reason));
+                }
             }
 
-            return new EmotionValidation(canonical);
+            return new EmotionValidation(canonicalExpr);
         }
 
         /// <summary>Reject non-finite, negative or out-of-range α.</summary>

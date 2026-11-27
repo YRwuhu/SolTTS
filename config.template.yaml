@@ -104,6 +104,10 @@ EmotionVectorPath: emotion_vectors
 # EmotionAlpha: default emotion strength α. Empirical range 0.1~0.5: too small has no visible effect, too large
 # degrades voice similarity. Maximum accepted value is 1.5.
 EmotionAlpha: 0.3
+# UseEmotionProsodyPresets: when enabled, nudges the speaking rate slightly according to the active emotion
+# (e.g. +6% for excited/flustered, -5% for crying/worried) to compensate for V1 T2S not receiving speaker
+# embeddings directly. Blended emotions interpolate by weight; the offset scales with α/0.3 (capped at 1.2x).
+UseEmotionProsodyPresets: false
 
 # Inference session pool capacity: maximum number of concurrent synthesis requests
 PoolCapacity: 1

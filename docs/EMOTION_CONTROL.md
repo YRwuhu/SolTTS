@@ -108,7 +108,60 @@ If you need "purer" directions (for example, valence only), orthogonalize τ wit
 UseEmotionControl: true
 EmotionVectorPath: emotion_vectors   # Relative to ResourcesDir
 EmotionAlpha: 0.3                    # Default α
+UseEmotionProsodyPresets: false      # Optional: emotion-driven speaking-rate nudge
 ```
+
+### Emotion Blending (v1.4.0+)
+
+Besides a single label, `emotionId` also accepts a weighted blend. Components are combined
+linearly and the result is re-normalized to a unit vector, so `τ̂` stays a valid direction:
+
+```
+/happy:0.6,shy:0.4     happy+shy        高兴:0.7,害羞:0.3
+```
+
+`+` and `,` are both accepted as separators; `:weight` is optional (default `1`). Weights must be
+finite and `> 0`; the baseline may appear but contributes nothing. The API returns the canonical
+expression (e.g. `happy:0.6+shy:0.4`) so clients can log what was actually applied.
+
+```bash
+curl -X POST http://localhost:5000/api/tts/predict \
+  -H "Content-Type: application/json" \
+  -d '{"text":"才、才不是特意等你的呢！","emotionId":"angry:0.4,shy:0.6","emotionAlpha":0.35}' \
+  -o tsundere.wav
+```
+
+### Emotion Prosody Presets
+
+V1's `t2s_encoder` takes no speaker embedding, so τ cannot change timing/pausing — only the
+timbre-style condition (`ge`/`ge_advanced`) that reaches `vits`. `UseEmotionProsodyPresets: true`
+compensates with a small speaking-rate offset tied to the active emotion (+6% excited/flustered,
++3% happy/playful/angry, −5% crying/helpless/worried/fearful, −3% shy/embarrassed/nervous),
+interpolated by blend weight and scaled by `α/0.3` (capped at 1.2×). It is a heuristic, not a
+learned prosody model; blind listening should decide whether to keep it on.
+
+## Decorrelating the Direction Vectors (v1.4.0)
+
+Single-speaker τ vectors share one dominant axis: across the 13 `ready` labels, the first singular
+vector explains **75.6%** of the direction energy, and pairwise cosine averages **+0.673**
+(`flustered~excited` 0.973, `happy~playful` 0.957, `shy~lovestruck` 0.940, `happy~crying` 0.736).
+That axis is mostly shared arousal/loudness, so different labels sound alike.
+
+`tools/emotion/decorrelate_tau.py` attenuates it:
+
+```bash
+python tools/emotion/decorrelate_tau.py \
+    --in resources/emotion_vectors_atri19_candidate \
+    --out _tau_decorr70 --beta 0.70 --fit-ready-only
+python tools/emotion/install_emotion_vectors.py --candidate _tau_decorr70 --apply
+```
+
+At `β=0.70` pairwise cosine drops to **+0.175**, `happy~crying` to **−0.084**. End-to-end at α=0.3,
+the acoustic delta of synthesized audio separates as well (`happy-crying` +0.758 → +0.379,
+`crying-excited` +0.774 → +0.366) while speaker similarity stays at 0.87–0.93. The shipped vectors
+(`resources/emotion_vectors`, `soltts-package/...`) use β=0.70; the original set is untouched in
+`resources/emotion_vectors_atri19_candidate` for rollback — re-running
+`install_emotion_vectors.py --apply` restores it.
 
 ### WebUI
 
@@ -130,8 +183,12 @@ curl -X POST http://localhost:5000/api/tts/predict \
 # One-shot
 sol-cli -e happy -a 0.3 "今天天气真好"
 
+# Blended (v1.4.0+)
+sol-cli -e "happy:0.6,shy:0.4" -a 0.35 "能和你一起走真开心。"
+
 # Interactive
 /emotion happy 0.3
+/emotion 高兴:0.7,害羞:0.3 0.35
 /emotion neutral      # Disable
 ```
 
@@ -188,27 +245,37 @@ Verified properties and conclusions:
 ## Known Limitations
 
 - Emotion τ applies only to the **V1 engine** (V2's speaker path is `sv.onnx` ERes2NetV2 + `sv_emb.npy`, a different mechanism).
-- τ is extracted from Chinese emotional speech (CSEMOTIONS); **cross-language/cross-voice transfer is not verified**.
-  For non-Chinese text or very different voices, consider re-extracting or adjusting α.
-- Directions for high-arousal emotions are strongly correlated (0.71–0.86), so fine distinctions (e.g., happy vs. surprise) may not be sharp.
+- τ is extracted from Chinese emotional speech (CSEMOTIONS) / a single ATRI speaker; **cross-voice transfer is not verified**.
+  For very different voices, consider re-extracting or adjusting α.
+- Directions for high-arousal emotions are strongly correlated (0.71–0.86 before decorrelation), so fine distinctions
+  (e.g., happy vs. surprise) may not be sharp; β=0.70 attenuation helps but does not make them orthogonal.
 - The dataset is 48 kHz, but the speaker encoder operates on 16 kHz input (consistent with the inference pipeline);
-  the extraction script performs resampling and amplitude normalization internally.
+  the extraction script performs resampling and amplitude normalization internally. Note that the runtime reference-audio
+  path (`AudioHelper.ReadWav`) does not apply the extraction script's DC-removal + 0.9 peak normalization, so loudness
+  differences in reference audio can shift `sv_emb` slightly (measured cosine 0.986 between raw and normalized input).
+- Low-sample labels (`fearful` 7, `embarrassed` 5, `disgust` 14) remain experimental.
 
 ## File Inventory
 
 ```
-SolTTS.Core/Core/EmotionDirectionController.cs   # τ loading + injection computation
-SolTTS.Core/Core/TtsEngineV1.cs                  # Injection hook (PrepareReference)
+SolTTS.Core/Core/EmotionDirectionController.cs   # τ loading + injection + blend composition
+SolTTS.Core/Core/EmotionCatalog.cs               # 19 labels, aliases, blend parser, speed presets
+SolTTS.Core/Core/TtsEngineV1.cs                  # Injection hook (PrepareReference), ge cache, speed preset
 SolTTS.Core/Core/ITtsEngine.cs                   # TtsOptions.EmotionId / EmotionAlpha
-SolTTS.Core/Config/TTSConfig.cs                  # UseEmotionControl / EmotionVectorPath / EmotionAlpha
+SolTTS.Core/Config/TTSConfig.cs                  # UseEmotionControl / EmotionVectorPath / EmotionAlpha / UseEmotionProsodyPresets
 SolTTS.Web/Controllers/TtsController.cs          # API passthrough
 SolTTS.Web/Models/TtsRequest.cs                  # Request model
+SolTTS.Web/Services/TtsRequestValidator.cs       # Single-label and blend validation before audio headers
 SolTTS.Web/wwwroot/index.html + js/playground.js # WebUI emotion selection + α slider
-SolTTS.CLI/Program.cs                            # -e/--emotion, -a/--emotion-alpha, /emotion
-tools/emotion/extract_tau.py                       # Dataset → τ extraction (GPU)
-tools/emotion/verify_injection.py                  # ge-level verification (α=0 bit identity, sensitivity)
-tools/emotion/analyze_eval.py                      # Objective audio metrics (similarity/F0/energy)
-tools/emotion_eval/                                # C# end-to-end evaluation tool
-SolTTS.Tests/EmotionDirectionTests.cs            # Unit tests
-resources/emotion_vectors/                         # τ data (*.f32 must be generated or obtained from releases)
+SolTTS.CLI/Program.cs                            # -e/--emotion (incl. blends), -a/--emotion-alpha, /emotion
+tools/emotion/extract_tau.py                     # Dataset → τ extraction (GPU)
+tools/emotion/extract_tau_atri.py                # ATRI single-speaker → 19-label τ
+tools/emotion/decorrelate_tau.py                 # PC1 arousal-axis attenuation (β)
+tools/emotion/install_emotion_vectors.py         # Validate + install τ into every runtime dir
+tools/emotion/verify_injection.py                # ge-level verification (α=0 bit identity, sensitivity)
+tools/emotion/analyze_eval.py                    # Objective audio metrics (similarity/F0/energy)
+tools/emotion_eval/                              # C# end-to-end evaluation tool
+SolTTS.Tests/EmotionDirectionTests.cs            # Unit tests (loading, α=0 identity, blending)
+resources/emotion_vectors/                       # τ data in use (β=0.70)
+resources/emotion_vectors_atri19_candidate/      # Original τ set (rollback reference)
 ```

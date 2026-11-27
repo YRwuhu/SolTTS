@@ -78,14 +78,21 @@ def main(src: str, dst: str) -> None:
                 raise SystemExit(f"{present}: producer is {concat.op_type}, expected Concat or Slice")
 
             reshape = consumer_of(present, "Reshape")
+            unsq = None
             if kind == "k":
-                unsq = consumer_of(reshape.output[0], "Unsqueeze")
-                trans = consumer_of(unsq.output[0], "Transpose")
+                next_cons = [n for n in nodes if reshape.output[0] in n.input]
+                if len(next_cons) == 1 and next_cons[0].op_type == "Transpose":
+                    # Simplified export: Reshape[1,-1,16,32] -> Transpose[0,2,3,1]
+                    trans = next_cons[0]
+                    dead.update((id(reshape), id(trans)))
+                else:
+                    unsq = consumer_of(reshape.output[0], "Unsqueeze")
+                    trans = consumer_of(unsq.output[0], "Transpose")
+                    dead.update((id(reshape), id(unsq), id(trans)))
                 perm = list(next(a.ints for a in trans.attribute if a.name == "perm"))
                 if perm != [0, 2, 3, 1]:
                     raise SystemExit(f"{present}: K perm {perm}, expected [0,2,3,1]")
                 tail = trans.output[0]
-                dead.update((id(reshape), id(unsq), id(trans)))
             else:
                 trans = consumer_of(reshape.output[0], "Transpose")
                 perm = list(next(a.ints for a in trans.attribute if a.name == "perm"))
@@ -105,9 +112,7 @@ def main(src: str, dst: str) -> None:
                 _rename(nodes, tail, present)
                 # The chain still produces `present`, so it must stay.
                 dead.difference_update((id(reshape), id(trans)))
-                if kind == "k":
-                    dead.difference_update((id(unsq),))
-                else:
+                if unsq is not None:
                     dead.difference_update((id(unsq),))
                 continue
 

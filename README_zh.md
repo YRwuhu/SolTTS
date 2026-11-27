@@ -22,7 +22,12 @@ sol-cli.exe -O out.wav -- "今天天气真好。"
 
 音色管理、模型转换和参数设置都可以在 WebUI 里完成。Linux 如需模型转换，先运行 `./init-env.sh`。macOS 仅支持 V1 引擎。
 
-默认使用 V1 引擎，支持中英、中日混读，以及实验性的[情感控制](docs/EMOTION_CONTROL.md)。V2 尚未完成，也没有随包模型。
+默认使用 V1 引擎，支持中英、中日混读，以及[情感控制](docs/EMOTION_CONTROL.md)：19 类标签，支持加权混合（如 `angry:0.4,shy:0.6`）和可选的语速联动预设。V2 尚未完成，也没有随包模型。
+
+```bash
+sol-cli.exe -e happy -a 0.35 -O happy.wav -- "今天天气真好呀。"
+sol-cli.exe -e "happy:0.6,shy:0.4" -a 0.35 -O blend.wav -- "能和你一起走真开心。"
+```
 
 ## 构建
 

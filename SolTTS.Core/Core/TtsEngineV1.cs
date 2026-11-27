@@ -37,7 +37,7 @@ namespace SolTTS.Core.Core
         private float[] _geAdvanced = Array.Empty<float>();
 
         private long[] _refPhoneIds = Array.Empty<long>();
-        private float[,] _refBert = new float[0, 1024]; // Preallocate 1024 columns to avoid ONNX dimension errors
+        private float[] _refBertFlat = Array.Empty<float>();
 
         private TTSConfig? _config;
 
@@ -159,7 +159,8 @@ namespace SolTTS.Core.Core
             public float[] SslContent = Array.Empty<float>();
             public float[] SvEmbBase = Array.Empty<float>();   // Original speaker embedding without injection
             public long[] RefPhoneIds = Array.Empty<long>();
-            public float[,] RefBert = new float[0, 1024];
+            public float[] RefBertFlat = Array.Empty<float>();
+            public readonly Dictionary<(string EmotionKey, float Alpha), (float[] Ge, float[] GeAdvanced)> EmotionPromptCache = new();
             public bool Valid;
         }
 
@@ -179,6 +180,7 @@ namespace SolTTS.Core.Core
                 throw new InvalidOperationException(error);
 
             float effectiveAlpha = 0f;
+            string cacheEmotion = string.Empty;
             if (canonical != null && tau != null)
             {
                 if (tau.Length != baseEmb.Length)
@@ -188,12 +190,23 @@ namespace SolTTS.Core.Core
                 effectiveAlpha = ResolveAlpha(emotionAlpha);
                 if (effectiveAlpha > 0f)
                 {
-                    _svEmb = EmotionDirectionController.Apply(baseEmb, tau, effectiveAlpha);
-                    Console.WriteLine($"[Emotion] Injected {canonical}: α={effectiveAlpha:0.###} (lightweight recompute)");
+                    cacheEmotion = canonical;
                 }
             }
 
-            if (effectiveAlpha <= 0f)
+            if (_refCache.EmotionPromptCache.TryGetValue((cacheEmotion, effectiveAlpha), out var cached))
+            {
+                _ge = cached.Ge;
+                _geAdvanced = cached.GeAdvanced;
+                return;
+            }
+
+            if (effectiveAlpha > 0f && tau != null)
+            {
+                _svEmb = EmotionDirectionController.Apply(baseEmb, tau, effectiveAlpha);
+                Console.WriteLine($"[Emotion] Injected {cacheEmotion}: α={effectiveAlpha:0.###} (lightweight recompute)");
+            }
+            else
             {
                 // Baseline / α=0: reuse the original embedding, output identical to no-emotion path
                 _svEmb = baseEmb;
@@ -202,6 +215,10 @@ namespace SolTTS.Core.Core
             var (ge, geAdvanced) = _engine.GetPromptEmbedding(_refAudio32k, _svEmb);
             _ge = ge;
             _geAdvanced = geAdvanced;
+
+            if (_refCache.EmotionPromptCache.Count >= 32)
+                _refCache.EmotionPromptCache.Clear();
+            _refCache.EmotionPromptCache[(cacheEmotion, effectiveAlpha)] = (ge, geAdvanced);
         }
 
         /// <summary>
@@ -236,6 +253,31 @@ namespace SolTTS.Core.Core
 
         /// <summary>Upper bound for α. Above this the speaker identity degrades severely.</summary>
         public const float MaxEmotionAlpha = 1.5f;
+
+        private float ResolveEffectiveSpeed(float requestedSpeed)
+        {
+            if (_config?.UseEmotionProsodyPresets != true
+                || string.IsNullOrEmpty(_currentEmotionId)
+                || _currentEmotionAlpha <= 0f)
+                return requestedSpeed;
+
+            if (!EmotionCatalog.TryParseBlend(_currentEmotionId, out var components, out _, out _)
+                || components.Count == 0)
+                return requestedSpeed;
+
+            float wSum = 0f, fSum = 0f;
+            foreach (var (id, w) in components)
+            {
+                wSum += w;
+                fSum += w * EmotionCatalog.GetRecommendedSpeedFactor(id);
+            }
+            if (wSum <= 0f) return requestedSpeed;
+
+            float targetFactor = fSum / wSum;
+            float scale = Math.Clamp(_currentEmotionAlpha / 0.3f, 0f, 1.2f);
+            float effectiveFactor = 1f + (targetFactor - 1f) * scale;
+            return Math.Clamp(requestedSpeed * effectiveFactor, 0.5f, 2.0f);
+        }
 
         /// <summary>Current readiness of all 19 labels, or null when emotion control is disabled.</summary>
         public IReadOnlyList<EmotionInfo>? GetEmotionCatalog() => _emotion?.Catalog();
@@ -349,6 +391,7 @@ namespace SolTTS.Core.Core
                 SvEmbBase = svEmbBase,
                 Valid = false,   // Set to true after G2P/BERT complete
             };
+            cache.EmotionPromptCache[(canonicalEmotion ?? string.Empty, effectiveAlpha)] = (ge, geAdvanced);
 
             // Run G2P using the reference audio's configured language
             // If that language is not in the global allow-list, create a temporary G2P that includes it
@@ -392,9 +435,9 @@ namespace SolTTS.Core.Core
                 float[] pooledBert = ExtractBertOptimal(res);
                 try
                 {
-                    // Convert the auxiliary 1D array into a persistent 2D array
-                    _refBert = new float[res.PhoneIds.Length, 1024];
-                    Buffer.BlockCopy(pooledBert, 0, _refBert, 0, res.PhoneIds.Length * 1024 * sizeof(float));
+                    int len = res.PhoneIds.Length * 1024;
+                    _refBertFlat = new float[len];
+                    Array.Copy(pooledBert, 0, _refBertFlat, 0, len);
                 }
                 finally
                 {
@@ -403,7 +446,7 @@ namespace SolTTS.Core.Core
             }
             else
             {
-                _refBert = new float[_refPhoneIds.Length, 1024];
+                _refBertFlat = new float[_refPhoneIds.Length * 1024];
             }
 
             if (_sslContent == null || _sslContent.Length == 0)
@@ -414,7 +457,7 @@ namespace SolTTS.Core.Core
 
             // All reference-audio processing succeeded → cache is complete for reuse across emotion/α switches
             cache.RefPhoneIds = _refPhoneIds;
-            cache.RefBert = _refBert;
+            cache.RefBertFlat = _refBertFlat;
             cache.Valid = true;
             _refCache = cache;
 
@@ -483,12 +526,13 @@ namespace SolTTS.Core.Core
                     float[] bertFeat = captured.BertFeat!;
                     try
                     {
-                        var bert2D = new float[res.PhoneIds.Length, 1024];
-                        Buffer.BlockCopy(bertFeat, 0, bert2D, 0, res.PhoneIds.Length * 1024 * sizeof(float));
                         await decodeGate.WaitAsync();
                         try
                         {
-                            var pred = _engine.RunT2S(res.PhoneIds, bert2D, _refPhoneIds, _refBert, _sslContent, res.LanguageTags, options);
+                            var pred = _engine.RunT2S(
+                                res.PhoneIds, bertFeat, res.PhoneIds.Length,
+                                _refPhoneIds, _refBertFlat, _refPhoneIds.Length,
+                                _sslContent, res.LanguageTags, options);
                             return (pred, res);
                         }
                         finally
@@ -514,7 +558,7 @@ namespace SolTTS.Core.Core
                 var refAudio = _refAudio32k;
                 var ge = _ge;
                 var geAdvanced = _geAdvanced;
-                var speed = options.Speed;
+                var speed = ResolveEffectiveSpeed(options.Speed);
                 var sentenceOrdinal = sentenceIndex;
                 var prev = vocoderChain;
                 var next = Task.Run(async () =>
@@ -716,16 +760,15 @@ namespace SolTTS.Core.Core
                         // Per-sentence retry/watermark state
                         int lastAudioLength = 0;
                         var tokenQueue = new System.Collections.Concurrent.ConcurrentQueue<(long[] tokens, bool isFinal)>();
+                        var tokenSignal = new SemaphoreSlim(0);
                         var t2sDone = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
                         // Exponential-interval strategy: initial threshold is chunkSize, then grows by a factor
                         int nextVocoderThreshold = options.StreamingChunkSize;
 
-                        var bert2D = new float[res.PhoneIds.Length, 1024];
-                        Buffer.BlockCopy(bertFeat, 0, bert2D, 0, res.PhoneIds.Length * 1024 * sizeof(float));
-
                         // Vocoder task: queued after the previous sentence, consumes this sentence's tokens chunk by chunk
                         var prevVocoder = vocoderChain;
+                        var effectiveSpeed = ResolveEffectiveSpeed(options.Speed);
                         var thisVocoder = Task.Run(async () =>
                         {
                             try
@@ -736,7 +779,7 @@ namespace SolTTS.Core.Core
                                     if (tokenQueue.TryDequeue(out var item))
                                     {
                                         var (tokens, isFinal) = item;
-                                        float[] fullAudio = _engine.RunVocoder(res.PhoneIds, tokens, _refAudio32k, out int currentTotalLen, _ge, _geAdvanced, options.Speed);
+                                        float[] fullAudio = _engine.RunVocoder(res.PhoneIds, tokens, _refAudio32k, out int currentTotalLen, _ge, _geAdvanced, effectiveSpeed);
                                         try
                                         {
                                             // Precise skip logic:
@@ -765,7 +808,7 @@ namespace SolTTS.Core.Core
                                     }
                                     else
                                     {
-                                        await Task.Delay(5, cancellationToken);
+                                        await tokenSignal.WaitAsync(cancellationToken);
                                     }
                                 }
                             }
@@ -776,25 +819,30 @@ namespace SolTTS.Core.Core
                                 mainChannel.Writer.TryComplete(ex);
                                 throw;
                             }
+                            finally
+                            {
+                                tokenSignal.Dispose();
+                            }
                         }, cancellationToken);
                         vocoderChain = thisVocoder;
 
-                        // T2S inference: exponential-interval strategy (1.5x growth)
+                        // T2S inference: exponential-interval strategy (1.5x/4x growth)
                         // Note: this call is synchronous; while it runs, the previous sentence's vocoder (if any) runs in parallel.
                         try
                         {
                             _engine.RunT2SStreamingTokens(
-                                res.PhoneIds, bert2D,
-                                _refPhoneIds, _refBert, _sslContent,
+                                res.PhoneIds, bertFeat, res.PhoneIds.Length,
+                                _refPhoneIds, _refBertFlat, _refPhoneIds.Length, _sslContent,
                                 chunkSize: options.StreamingChunkSize,
                                 onTokenChunk: (tokens, isFinal) =>
                                 {
                                     // Exponential interval: invoke the vocoder only when the token count reaches the threshold or on isFinal
-                                    // Use a 1.5x growth factor to smooth out stalls
+                                    // Use a growth factor to smooth out stalls
                                     if (isFinal || tokens.Length >= nextVocoderThreshold)
                                     {
                                         tokenQueue.Enqueue((tokens, isFinal));
-                                        // Threshold grows by the configured factor (default 1.5x); a larger factor means less recompute but higher chunk latency
+                                        try { tokenSignal.Release(); } catch (ObjectDisposedException) { }
+                                        // Threshold grows by the configured factor (default 4.0x); a larger factor means less recompute but higher chunk latency
                                         float factor = options.VocoderRetriggerFactor > 1.05f ? options.VocoderRetriggerFactor : 1.5f;
                                         nextVocoderThreshold = Math.Max((int)(nextVocoderThreshold * factor), tokens.Length + options.StreamingChunkSize);
                                     }
@@ -814,6 +862,7 @@ namespace SolTTS.Core.Core
                         {
                             // Always signal the vocoder task to exit the loop, on success or failure
                             t2sDone.TrySetResult(true);
+                            try { tokenSignal.Release(); } catch (ObjectDisposedException) { }
                             if (ctx.BertFeat != null)
                             {
                                 ArrayPool<float>.Shared.Return(ctx.BertFeat);

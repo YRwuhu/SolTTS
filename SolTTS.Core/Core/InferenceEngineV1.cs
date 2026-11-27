@@ -49,6 +49,46 @@ namespace SolTTS.Core.Core
             return names;
         }
 
+        private DecoderOutputIndices? _firstStageOutIdx;
+        private DecoderOutputIndices? _stageOutIdx;
+
+        private sealed class DecoderOutputIndices
+        {
+            public readonly int Y;
+            public readonly int YEmb;
+            public readonly int Stop;
+            public readonly int[] PresentK = new int[KvLayerCount];
+            public readonly int[] PresentV = new int[KvLayerCount];
+
+            private DecoderOutputIndices(IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results, bool hasStop)
+            {
+                var map = new Dictionary<string, int>(results.Count, StringComparer.Ordinal);
+                for (int i = 0; i < results.Count; i++)
+                    map[results[i].Name] = i;
+
+                Y = map["y"];
+                YEmb = map["y_emb"];
+                Stop = hasStop ? map["stop_condition_tensor"] : -1;
+                for (int l = 0; l < KvLayerCount; l++)
+                {
+                    PresentK[l] = map[PresentKNames[l]];
+                    PresentV[l] = map[PresentVNames[l]];
+                }
+            }
+
+            public static DecoderOutputIndices Resolve(
+                ref DecoderOutputIndices? cache,
+                IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results,
+                bool hasStop)
+            {
+                var cur = Volatile.Read(ref cache);
+                if (cur != null) return cur;
+                var built = new DecoderOutputIndices(results, hasStop);
+                Volatile.Write(ref cache, built);
+                return built;
+            }
+        }
+
         // V2ProPlus components
         private InferenceSession? _promptEncoder;
         private InferenceSession? _hubert;
@@ -236,6 +276,8 @@ namespace SolTTS.Core.Core
             UseNativeKvLayoutDecoders = config.UseNativeKvLayout
                 && File.Exists(Path.Combine(modelDir, "t2s_stage_decoder_kvlayout.onnx"))
                 && File.Exists(Path.Combine(modelDir, "t2s_first_stage_decoder_kvlayout.onnx"));
+            _firstStageOutIdx = null;
+            _stageOutIdx = null;
             if (config.UseNativeKvLayout && !UseNativeKvLayoutDecoders && config.DebugMode)
             {
                 Console.WriteLine(
@@ -381,6 +423,8 @@ namespace SolTTS.Core.Core
             _firstStageDecoder = other._firstStageDecoder;
             _stageDecoder = other._stageDecoder;
             _stageDecoderLoop = other._stageDecoderLoop;
+            _firstStageOutIdx = other._firstStageOutIdx;
+            _stageOutIdx = other._stageOutIdx;
             _vocoder = other._vocoder;
             _promptEncoder = other._promptEncoder;
             _hubert = other._hubert;
@@ -483,6 +527,24 @@ namespace SolTTS.Core.Core
 
         public long[] RunT2S(long[] textSeq, float[,] textBert, long[] refSeq, float[,] refBert, float[] sslContent, PhoneLanguage[]? languageTags = null, TtsOptions? options = null)
         {
+            float[] refBertFlat = Flatten(refBert);
+            float[] textBertFlat = Flatten(textBert);
+            try
+            {
+                return RunT2S(
+                    textSeq, textBertFlat, textBert.GetLength(0),
+                    refSeq, refBertFlat, refBert.GetLength(0),
+                    sslContent, languageTags, options);
+            }
+            finally
+            {
+                ReturnFlat(refBertFlat);
+                ReturnFlat(textBertFlat);
+            }
+        }
+
+        public long[] RunT2S(long[] textSeq, float[] textBertFlat, int textBertRows, long[] refSeq, float[] refBertFlat, int refBertRows, float[] sslContent, PhoneLanguage[]? languageTags = null, TtsOptions? options = null)
+        {
             options = ApplyConfig(options);
             var phaseSw = PerfStats.Enabled ? System.Diagnostics.Stopwatch.StartNew() : null;
             int stageSteps = 0;
@@ -495,8 +557,6 @@ namespace SolTTS.Core.Core
             if (sslContent.Length % 768 != 0)
                 throw new ArgumentException($"sslContent length {sslContent.Length} is invalid; it must be a multiple of 768.");
 
-            float[] refBertFlat = Flatten(refBert);
-            float[] textBertFlat = Flatten(textBert);
             try
             {
                 // 1. Encoder inference
@@ -504,8 +564,8 @@ namespace SolTTS.Core.Core
                 {
                     NamedOnnxValue.CreateFromTensor("ref_seq", new DenseTensor<long>(refSeq, new[] { 1, refSeq.Length })),
                     NamedOnnxValue.CreateFromTensor("text_seq", new DenseTensor<long>(textSeq, new[] { 1, textSeq.Length })),
-                    NamedOnnxValue.CreateFromTensor("ref_bert", new DenseTensor<float>(refBertFlat.AsMemory(0, refBert.Length), new[] { (int)refBert.GetLength(0), (int)refBert.GetLength(1) })),
-                    NamedOnnxValue.CreateFromTensor("text_bert", new DenseTensor<float>(textBertFlat.AsMemory(0, textBert.Length), new[] { (int)textBert.GetLength(0), (int)textBert.GetLength(1) })),
+                    NamedOnnxValue.CreateFromTensor("ref_bert", new DenseTensor<float>(refBertFlat.AsMemory(0, refBertRows * 1024), new[] { refBertRows, 1024 })),
+                    NamedOnnxValue.CreateFromTensor("text_bert", new DenseTensor<float>(textBertFlat.AsMemory(0, textBertRows * 1024), new[] { textBertRows, 1024 })),
                     NamedOnnxValue.CreateFromTensor("ssl_content", new DenseTensor<float>(sslContent, new[] { 1, 768, sslContent.Length / 768 }))
                 };
 
@@ -514,8 +574,8 @@ namespace SolTTS.Core.Core
                 {
                     Console.WriteLine($"[T2S Input] ref_seq shape: [1, {refSeq.Length}]");
                     Console.WriteLine($"[T2S Input] text_seq shape: [1, {textSeq.Length}]");
-                    Console.WriteLine($"[T2S Input] ref_bert shape: [{refBert.GetLength(0)}, {refBert.GetLength(1)}], first 3: {refBertFlat[0]}, {refBertFlat[1]}, {refBertFlat[2]}");
-                    Console.WriteLine($"[T2S Input] text_bert shape: [{textBert.GetLength(0)}, {textBert.GetLength(1)}], first 3: {textBertFlat[0]}, {textBertFlat[1]}, {textBertFlat[2]}");
+                    Console.WriteLine($"[T2S Input] ref_bert shape: [{refBertRows}, 1024], first 3: {refBertFlat[0]}, {refBertFlat[1]}, {refBertFlat[2]}");
+                    Console.WriteLine($"[T2S Input] text_bert shape: [{textBertRows}, 1024], first 3: {textBertFlat[0]}, {textBertFlat[1]}, {textBertFlat[2]}");
                     Console.WriteLine($"[T2S Input] ssl_content shape: [1, 768, {sslContent.Length / 768}], mean: {sslContent.Average()}, first 3: {string.Join(", ", sslContent.Take(3))}");
                 }
 
@@ -551,8 +611,12 @@ namespace SolTTS.Core.Core
                 if (DebugMode) DebugLog($"[T2S] Min expected tokens: {minExpectedTokens} (textSeq.Length={textSeq.Length})");
 
                 List<long> generatedTokens = new List<long>();
-                int maxRetries = 10;
+                int maxRetries = options.MaxRetries!.Value;
                 int retryCount = 0;
+                int eosFirstTokenCount = 0;
+                const int maxEosFirstTokenRetries = 12;
+                long[] lastGoodTokens = Array.Empty<long>();
+                int lastGoodTokenCount = 0;
                 bool success = false;
 
                 while (retryCount < maxRetries)
@@ -568,9 +632,10 @@ namespace SolTTS.Core.Core
                  };
 
                     using var firstStageResults = _firstStageDecoder.Run(firstStageInputs);
+                    var firstIdx = DecoderOutputIndices.Resolve(ref _firstStageOutIdx, firstStageResults, hasStop: false);
 
-                    var yTensor = firstStageResults.First(r => r.Name == "y").AsTensor<long>();
-                    var yEmbTensor = firstStageResults.First(r => r.Name == "y_emb").AsTensor<float>();
+                    var yTensor = firstStageResults[firstIdx.Y].AsTensor<long>();
+                    var yEmbTensor = firstStageResults[firstIdx.YEmb].AsTensor<float>();
 
                     if (DebugMode)
                     {
@@ -586,15 +651,23 @@ namespace SolTTS.Core.Core
 
                     // Capture First Stage Token (The first semantic token)
                     var firstDense = (DenseTensor<long>)yTensor;
-                    generatedTokens.Add(firstDense.Buffer.Span[firstDense.Buffer.Length - 1]);
+                    var firstToken = firstDense.Buffer.Span[firstDense.Buffer.Length - 1];
+                    if (firstToken >= 1024)
+                    {
+                        eosFirstTokenCount++;
+                        if (eosFirstTokenCount >= maxEosFirstTokenRetries)
+                            break;
+                        continue;
+                    }
+                    generatedTokens.Add(firstToken);
 
                     // KV cache references the First Stage result tensors directly (no Clone);
                     // firstStageResults stays alive via using until this decoding step completes.
                     var currentKvCache = new Tensor<float>[KvLayerCount * 2];
                     for (int layer = 0; layer < KvLayerCount; layer++)
                     {
-                        currentKvCache[layer * 2] = firstStageResults.First(r => r.Name == PresentKNames[layer]).AsTensor<float>();
-                        currentKvCache[layer * 2 + 1] = firstStageResults.First(r => r.Name == PresentVNames[layer]).AsTensor<float>();
+                        currentKvCache[layer * 2] = firstStageResults[firstIdx.PresentK[layer]].AsTensor<float>();
+                        currentKvCache[layer * 2 + 1] = firstStageResults[firstIdx.PresentV[layer]].AsTensor<float>();
                     }
 
                     // --- B. Run Stage Decoder Loop ---
@@ -659,14 +732,15 @@ namespace SolTTS.Core.Core
                             stageHolder?.Dispose();
                             stageHolder = stageResults;
 
-                            currentYTensor = stageResults.First(r => r.Name == "y").AsTensor<long>();
-                            currentYEmbTensor = stageResults.First(r => r.Name == "y_emb").AsTensor<float>();
-                            var stopCondition = stageResults.First(r => r.Name == "stop_condition_tensor").AsTensor<bool>().GetValue(0);
+                            var stageIdx = DecoderOutputIndices.Resolve(ref _stageOutIdx, stageResults, hasStop: true);
+                            currentYTensor = stageResults[stageIdx.Y].AsTensor<long>();
+                            currentYEmbTensor = stageResults[stageIdx.YEmb].AsTensor<float>();
+                            var stopCondition = stageResults[stageIdx.Stop].AsTensor<bool>().GetValue(0);
 
                             for (int layer = 0; layer < numLayers; layer++)
                             {
-                                currentKvCache[layer * 2] = stageResults.First(r => r.Name == PresentKNames[layer]).AsTensor<float>();
-                                currentKvCache[layer * 2 + 1] = stageResults.First(r => r.Name == PresentVNames[layer]).AsTensor<float>();
+                                currentKvCache[layer * 2] = stageResults[stageIdx.PresentK[layer]].AsTensor<float>();
+                                currentKvCache[layer * 2 + 1] = stageResults[stageIdx.PresentV[layer]].AsTensor<float>();
                             }
 
                             // Read the tensor buffer tail directly to avoid ToArray()
@@ -691,6 +765,11 @@ namespace SolTTS.Core.Core
                         break;
                     }
 
+                    if (generatedTokens.Count > lastGoodTokenCount)
+                    {
+                        lastGoodTokenCount = generatedTokens.Count;
+                        lastGoodTokens = generatedTokens.ToArray();
+                    }
                     retryCount++;
                     if (DebugMode) DebugLog($"[T2S] Insufficient tokens ({generatedTokens.Count} < {minExpectedTokens}). Retrying {retryCount}/{maxRetries}...");
 
@@ -698,10 +777,12 @@ namespace SolTTS.Core.Core
 
                 if (!success)
                 {
-                    // Degrade gracefully: like the other paths, when retries are exhausted return whatever tokens
-                    // are available instead of failing the whole sentence over sampling quality.
-                    if (generatedTokens.Count > 0)
+                    // Degrade gracefully: like the other paths, when retries are exhausted return the longest
+                    // generated sequence instead of failing the whole sentence over sampling quality.
+                    if (lastGoodTokenCount > 0)
                     {
+                        generatedTokens.Clear();
+                        generatedTokens.AddRange(lastGoodTokens);
                         Console.WriteLine(
                             $"⚠️ [T2S] Retries exhausted, degrading to the generated content " +
                             $"(tokens={generatedTokens.Count}, expected={minExpectedTokens})");
@@ -731,8 +812,6 @@ namespace SolTTS.Core.Core
             }
             finally
             {
-                ReturnFlat(refBertFlat);
-                ReturnFlat(textBertFlat);
                 if (phaseSw != null) PerfStats.AddT2S(phaseSw, textSeq.Length, stageSteps);
             }
         }
@@ -933,20 +1012,42 @@ namespace SolTTS.Core.Core
             PhoneLanguage[]? languageTags = null,  // languageTags added
             TtsOptions? options = null)
         {
+            float[] refBertFlat = Flatten(refBert);
+            float[] textBertFlat = Flatten(textBert);
+            try
+            {
+                RunT2SStreamingTokens(
+                    textSeq, textBertFlat, textBert.GetLength(0),
+                    refSeq, refBertFlat, refBert.GetLength(0),
+                    sslContent, chunkSize, onTokenChunk, onRetry, languageTags, options);
+            }
+            finally
+            {
+                ReturnFlat(refBertFlat);
+                ReturnFlat(textBertFlat);
+            }
+        }
+
+        public void RunT2SStreamingTokens(
+            long[] textSeq, float[] textBertFlat, int textBertRows,
+            long[] refSeq, float[] refBertFlat, int refBertRows, float[] sslContent,
+            int chunkSize,
+            Action<long[], bool> onTokenChunk,  // (tokensSoFar, isFinal)
+            Action? onRetry = null,
+            PhoneLanguage[]? languageTags = null,  // languageTags added
+            TtsOptions? options = null)
+        {
             options = ApplyConfig(options);
             if (_t2sEncoder == null || _firstStageDecoder == null || _stageDecoder == null)
                 throw new InvalidOperationException("T2S models not loaded.");
 
-            float[] refBertFlat = Flatten(refBert);
-            float[] textBertFlat = Flatten(textBert);
-            try
             {
                 var encoderInputs = new List<NamedOnnxValue>
                 {
                     NamedOnnxValue.CreateFromTensor("ref_seq", new DenseTensor<long>(refSeq, new[] { 1, refSeq.Length })),
                     NamedOnnxValue.CreateFromTensor("text_seq", new DenseTensor<long>(textSeq, new[] { 1, textSeq.Length })),
-                    NamedOnnxValue.CreateFromTensor("ref_bert", new DenseTensor<float>(refBertFlat.AsMemory(0, refBert.Length), new[] { (int)refBert.GetLength(0), (int)refBert.GetLength(1) })),
-                    NamedOnnxValue.CreateFromTensor("text_bert", new DenseTensor<float>(textBertFlat.AsMemory(0, textBert.Length), new[] { (int)textBert.GetLength(0), (int)textBert.GetLength(1) })),
+                    NamedOnnxValue.CreateFromTensor("ref_bert", new DenseTensor<float>(refBertFlat.AsMemory(0, refBertRows * 1024), new[] { refBertRows, 1024 })),
+                    NamedOnnxValue.CreateFromTensor("text_bert", new DenseTensor<float>(textBertFlat.AsMemory(0, textBertRows * 1024), new[] { textBertRows, 1024 })),
                     NamedOnnxValue.CreateFromTensor("ssl_content", new DenseTensor<float>(sslContent, new[] { 1, 768, sslContent.Length / 768 }))
                 };
 
@@ -995,10 +1096,11 @@ namespace SolTTS.Core.Core
                     // Manually manage the firstStageResults lifetime
                     var firstStageResults = _firstStageDecoder.Run(firstStageInputs);
                     activeResults = firstStageResults; // Hold it
+                    var firstIdx = DecoderOutputIndices.Resolve(ref _firstStageOutIdx, firstStageResults, hasStop: false);
 
-                    var yTensor = firstStageResults.First(r => r.Name == "y").AsTensor<long>();
+                    var yTensor = firstStageResults[firstIdx.Y].AsTensor<long>();
                     // Note: no Clone here; relies on activeResults staying alive
-                    var yEmbTensor = firstStageResults.First(r => r.Name == "y_emb").AsTensor<float>();
+                    var yEmbTensor = firstStageResults[firstIdx.YEmb].AsTensor<float>();
 
                     // Safe access because activeResults is alive
                     var firstToken = ((DenseTensor<long>)yTensor).Buffer.Span[((DenseTensor<long>)yTensor).Buffer.Length - 1];
@@ -1022,8 +1124,8 @@ namespace SolTTS.Core.Core
                     var kvCache = new Tensor<float>[KvLayerCount * 2];
                     for (int layer = 0; layer < KvLayerCount; layer++)
                     {
-                        kvCache[layer * 2] = firstStageResults.First(r => r.Name == PresentKNames[layer]).AsTensor<float>();
-                        kvCache[layer * 2 + 1] = firstStageResults.First(r => r.Name == PresentVNames[layer]).AsTensor<float>();
+                        kvCache[layer * 2] = firstStageResults[firstIdx.PresentK[layer]].AsTensor<float>();
+                        kvCache[layer * 2 + 1] = firstStageResults[firstIdx.PresentV[layer]].AsTensor<float>();
                     }
 
                     var currentYTensor = yTensor;
@@ -1126,17 +1228,19 @@ namespace SolTTS.Core.Core
                             activeResults?.Dispose();
                             activeResults = stageResults; // Update active holder
 
-                            // Update references (No Clone)
-                            currentYTensor = stageResults.First(r => r.Name == "y").AsTensor<long>();
-                            currentYEmbTensor = stageResults.First(r => r.Name == "y_emb").AsTensor<float>();
+                            var stageIdx = DecoderOutputIndices.Resolve(ref _stageOutIdx, stageResults, hasStop: true);
 
-                            var stopCondition = stageResults.First(r => r.Name == "stop_condition_tensor").AsTensor<bool>().GetValue(0);
+                            // Update references (No Clone)
+                            currentYTensor = stageResults[stageIdx.Y].AsTensor<long>();
+                            currentYEmbTensor = stageResults[stageIdx.YEmb].AsTensor<float>();
+
+                            var stopCondition = stageResults[stageIdx.Stop].AsTensor<bool>().GetValue(0);
 
                             // Update KV Cache pointers for next iteration
                             for (int layer = 0; layer < numLayers; layer++)
                             {
-                                kvCache[layer * 2] = stageResults.First(r => r.Name == PresentKNames[layer]).AsTensor<float>();
-                                kvCache[layer * 2 + 1] = stageResults.First(r => r.Name == PresentVNames[layer]).AsTensor<float>();
+                                kvCache[layer * 2] = stageResults[stageIdx.PresentK[layer]].AsTensor<float>();
+                                kvCache[layer * 2 + 1] = stageResults[stageIdx.PresentV[layer]].AsTensor<float>();
                             }
 
                             // Safe access
@@ -1216,11 +1320,6 @@ namespace SolTTS.Core.Core
                     }
                     throw new Exception($"Streaming T2S inference failed: expected token count ({minExpectedTokens}) not reached after {options.MaxRetries} retries");
                 }
-            }
-            finally
-            {
-                ReturnFlat(refBertFlat);
-                ReturnFlat(textBertFlat);
             }
         }
 
@@ -1359,7 +1458,16 @@ namespace SolTTS.Core.Core
         private TtsOptions ApplyConfig(TtsOptions? options)
         {
             options ??= TtsOptions.Default;
-            if (_config == null) return options;
+            if (_config == null)
+            {
+                options.DebugMode ??= false;
+                options.MaxRetries ??= 3;
+                options.MinTokenMultiplierChinese ??= 2.1f;
+                options.MinTokenMultiplierJapanese ??= 2.0f;
+                options.MinTokenMultiplierEnglish ??= 1.3f;
+                options.MinTokenMultiplierOther ??= 0.5f;
+                return options;
+            }
 
             options.DebugMode ??= _config.DebugMode;
             options.MaxRetries ??= _config.Inference.MaxRetries;

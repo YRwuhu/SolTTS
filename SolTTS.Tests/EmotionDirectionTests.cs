@@ -391,5 +391,47 @@ namespace SolTTS.Tests
             var tau = new float[] { 1f, 0f };
             Assert.Throws<ArgumentOutOfRangeException>(() => EmotionDirectionController.Apply(x, tau, alpha));
         }
+
+        // ------------------------------------------------------------------
+        // Blending
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void Resolve_WeightedBlendProducesUnitNormalizedSum()
+        {
+            var v1 = new float[EmotionDirectionController.ExpectedDim];
+            var v2 = new float[EmotionDirectionController.ExpectedDim];
+            v1[0] = 1f;
+            v2[1] = 1f;
+            var dir = WriteTempTauDir(("happy", v1), ("shy", v2));
+            try
+            {
+                var c = new EmotionDirectionController(dir);
+                var (id, tau, err) = c.Resolve("happy:3,shy:4");
+                Assert.Null(err);
+                Assert.Equal("happy:3+shy:4", id);
+                Assert.NotNull(tau);
+                Assert.Equal(0.6f, tau![0], 4);
+                Assert.Equal(0.8f, tau[1], 4);
+                double norm = Math.Sqrt(tau.Sum(t => (double)t * t));
+                Assert.Equal(1.0, norm, 5);
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
+        [Fact]
+        public void Resolve_BlendRejectsUnknownOrInvalidWeight()
+        {
+            var dir = WriteFullDimDir("happy", "shy");
+            try
+            {
+                var c = new EmotionDirectionController(dir);
+                var (_, _, err1) = c.Resolve("happy+bogus");
+                Assert.NotNull(err1);
+                var (_, _, err2) = c.Resolve("happy:-0.5,shy:1");
+                Assert.NotNull(err2);
+            }
+            finally { Directory.Delete(dir, true); }
+        }
     }
 }

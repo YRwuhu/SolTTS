@@ -323,6 +323,13 @@ namespace SolTTS.Core.Config
         /// </summary>
         public float EmotionAlpha { get; set; } = 0.3f;
 
+        /// <summary>
+        /// When enabled alongside UseEmotionControl, nudges speaking rate slightly according to the active
+        /// emotion (e.g., +6% for excited/flustered, -5% for crying/worried) to compensate for V1 T2S not
+        /// receiving speaker embeddings directly. Default false.
+        /// </summary>
+        public bool UseEmotionProsodyPresets { get; set; } = false;
+
         /// <summary>Full path to the emotion direction vector directory.</summary>
         [JsonIgnore]
         public string EmotionVectorFullPath =>

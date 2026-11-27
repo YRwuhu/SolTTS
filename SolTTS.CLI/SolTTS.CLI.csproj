@@ -10,8 +10,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>sol-cli</AssemblyName>
-    <AssemblyVersion>1.2.2</AssemblyVersion>
-    <Version>1.2.2</Version>
+    <AssemblyVersion>1.4.0</AssemblyVersion>
+    <Version>1.4.0</Version>
     <!-- For cross-platform (Linux/macOS) publishing, warnings about Windows-only APIs (NAudio WasapiOut, etc.) are isolated by runtime checks; suppress false positives. -->
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>

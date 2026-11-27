@@ -127,13 +127,13 @@ namespace SolTTS.CLI
                                 if (i + 1 < args.Length && !args[i + 1].StartsWith("-")) value = args[++i];
                                 else { Console.WriteLine("Error: Missing value for emotion flag."); ShowUsage(); return; }
                             }
-                            if (!EmotionCatalog.TryNormalize(value, out var canonicalEmotion))
+                            if (!EmotionCatalog.TryParseBlend(value, out var parsedComps, out var canonicalEmotion, out var parseErr))
                             {
-                                Console.WriteLine($"Error: unknown emotion '{value}'. Known labels:");
+                                Console.WriteLine($"Error: {parseErr ?? $"unknown emotion '{value}'"}. Known labels:");
                                 PrintEmotionChoices();
                                 return;
                             }
-                            _emotionId = EmotionCatalog.IsBaseline(canonicalEmotion) ? null : canonicalEmotion;
+                            _emotionId = parsedComps.Count == 0 ? null : canonicalEmotion;
                             break;
 
                         case "-a":
@@ -740,17 +740,17 @@ namespace SolTTS.CLI
                         var ea = arg.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
                         var name = ea[0];
                         if (name is "off" or "none" or "-") name = EmotionCatalog.Baseline;
-                        if (!EmotionCatalog.TryNormalize(name, out var canonical)) {
-                            Console.WriteLine($"Unknown emotion '{name}'. Known labels:");
+                        if (!EmotionCatalog.TryParseBlend(name, out var comps, out var canonical, out var parseErr)) {
+                            Console.WriteLine($"{parseErr ?? $"Unknown emotion '{name}'"}. Known labels:");
                             PrintEmotionChoices();
                             await Task.CompletedTask;
                             return;
                         }
-                        _emotionId = EmotionCatalog.IsBaseline(canonical) ? null : canonical;
+                        _emotionId = comps.Count == 0 ? null : canonical;
                         if (ea.Length > 1 && float.TryParse(ea[1], System.Globalization.NumberStyles.Float,
                                 System.Globalization.CultureInfo.InvariantCulture, out float a))
                             _emotionAlpha = a;
-                        Console.WriteLine($"Emotion guide set to: {canonical}" +
+                        Console.WriteLine($"Emotion guide set to: {(comps.Count == 0 ? EmotionCatalog.Baseline : canonical)}" +
                                           (_emotionAlpha.HasValue ? $" (alpha={_emotionAlpha.Value:0.###})" : ""));
                     }
                     await Task.CompletedTask;

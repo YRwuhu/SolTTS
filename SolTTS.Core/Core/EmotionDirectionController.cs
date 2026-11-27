@@ -359,26 +359,61 @@ namespace SolTTS.Core.Core
             }).ToArray();
 
         /// <summary>
-        /// Resolve a request emotion to (canonical id or null for baseline, tau, reason).
-        /// Throws for unknown labels; returns a reason instead of throwing for known-but-unusable ones so the
-        /// caller can produce a clear 400 response.
+        /// Resolve a request emotion (single label or blend such as "happy+shy" / "happy:0.6,shy:0.4")
+        /// to (canonical id/expression or null for baseline, unit-normalized tau, reason).
+        /// Returns a reason for unknown or unusable labels so callers can fail loudly.
         /// </summary>
         public (string? Id, float[]? Tau, string? Error) Resolve(string? emotion)
         {
             if (emotion == null || emotion.Trim().Length == 0)
                 return (null, null, null);
-            if (!EmotionCatalog.TryNormalize(emotion, out var id))
-                return (null, null, $"unknown emotion '{emotion}'");
-            if (EmotionCatalog.IsBaseline(id))
+
+            if (!EmotionCatalog.TryParseBlend(emotion, out var components, out var canonicalExpr, out var parseErr))
+                return (null, null, parseErr);
+
+            if (components.Count == 0)
                 return (null, null, null);
-            if (!_tau.TryGetValue(id, out var tau))
+
+            if (components.Count == 1)
             {
-                var info = _info.TryGetValue(id, out var i) ? i : null;
-                return (null, null,
-                    $"emotion '{id}' ({info?.ZhName}) has no usable direction vector" +
-                    (string.IsNullOrEmpty(info?.Reason) ? "" : $": {info!.Reason}"));
+                var id = components[0].Id;
+                if (!_tau.TryGetValue(id, out var tau))
+                {
+                    var info = _info.TryGetValue(id, out var i) ? i : null;
+                    return (null, null,
+                        $"emotion '{id}' ({info?.ZhName}) has no usable direction vector" +
+                        (string.IsNullOrEmpty(info?.Reason) ? "" : $": {info!.Reason}"));
+                }
+                return (id, tau, null);
             }
-            return (id, tau, null);
+
+            // Weighted blend of multiple unit direction vectors, re-normalized to unit L2 norm.
+            var blended = new float[ExpectedDim];
+            foreach (var (id, weight) in components)
+            {
+                if (!_tau.TryGetValue(id, out var tau))
+                {
+                    var info = _info.TryGetValue(id, out var i) ? i : null;
+                    return (null, null,
+                        $"emotion '{id}' ({info?.ZhName}) in blend '{emotion}' has no usable direction vector" +
+                        (string.IsNullOrEmpty(info?.Reason) ? "" : $": {info!.Reason}"));
+                }
+                for (int k = 0; k < ExpectedDim; k++)
+                    blended[k] += weight * tau[k];
+            }
+
+            double sumSq = 0;
+            for (int k = 0; k < ExpectedDim; k++)
+                sumSq += (double)blended[k] * blended[k];
+            double norm = Math.Sqrt(sumSq);
+            if (norm < MinRawNorm)
+                return (null, null, $"emotion blend '{emotion}' cancels out to a zero vector");
+
+            float invNorm = (float)(1.0 / norm);
+            for (int k = 0; k < ExpectedDim; k++)
+                blended[k] *= invNorm;
+
+            return (canonicalExpr, blended, null);
         }
 
         // ====================================================================

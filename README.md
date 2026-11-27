@@ -22,7 +22,12 @@ sol-cli.exe -O out.wav -- "今天天气真好。"
 
 The WebUI also handles voice management, model conversion and settings. On Linux, run `./init-env.sh` first if you need the model converter. macOS supports the V1 engine only.
 
-The default V1 engine supports Chinese/English and Chinese/Japanese, plus experimental [emotion control](docs/EMOTION_CONTROL.md). V2 is incomplete and has no bundled models.
+The default V1 engine supports Chinese/English and Chinese/Japanese, plus [emotion control](docs/EMOTION_CONTROL.md): 19 labels, weighted blending (e.g. `angry:0.4,shy:0.6`) and optional emotion-driven speaking-rate presets. V2 is incomplete and has no bundled models.
+
+```bash
+sol-cli.exe -e happy -a 0.35 -O happy.wav -- "今天天气真好呀。"
+sol-cli.exe -e "happy:0.6,shy:0.4" -a 0.35 -O blend.wav -- "能和你一起走真开心。"
+```
 
 ## Build
 

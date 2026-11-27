@@ -5,8 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>sol-server</AssemblyName>
-    <AssemblyVersion>1.2.2</AssemblyVersion>
-    <Version>1.2.2</Version>
+    <AssemblyVersion>1.4.0</AssemblyVersion>
+    <Version>1.4.0</Version>
     <!-- Suppress false-positive warnings for Windows-only APIs when publishing cross-platform (Linux/macOS). -->
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
